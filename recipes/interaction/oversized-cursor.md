@@ -16,6 +16,7 @@ pitfalls: [sub-threshold, dead-frame, fake-ui]
 qa: {peak: 16, settle: 30}
 status: tuned
 pairs_with: [type-and-filter, cut-the-curve]
+conflicts: [browser-walkthrough]
 impl: [showcase/00-promo-launch-film/index.html]
 derived_from:
   - {repo: github.com/heygen-com/hyperframes, commit: "a46095f", path: .claude/skills/oversized-cursor/SKILL.md, license: Apache-2.0, note: 尺寸、入场、尖端对准、点击、离场和跨镜交接}

@@ -148,6 +148,7 @@
 | [toggle-slide](ui/toggle-slide.md) | 开关的圆钮滑到另一头、带一点回弹落定，轨道换色，圆钮上出现勾、旁边的"关"换成"开"；状态不只靠颜色表达 | 2 | 0.67–2 s | tuned |
 | [upload-stack](ui/upload-stack.md) | 几张文件卡一张张抬起叠成一列，每张带自己的进度条，按各自的大小用不同的时间走到 100%；全部完成，标题才换成"已上传" | 2 | 2–5 s | tuned |
 | [zoom-callout](ui/zoom-callout.md) | 界面上一个很小的数先被圈出来，一条线从圈引到旁边，一个圆形放大框弹出来，里面是同一个数的 4.5 倍字号和它的标签 | 2 | 1.5–4 s | tuned |
+| [browser-walkthrough](interaction/browser-walkthrough.md) | 每个页面状态一张真截图，光标走向量好的目标、停稳再点，页面在点下去之后才换，镜头比光标沉稳，只在要看的区域变了才推过去 | 1–2 | 4–12 s | tuned |
 | [oversized-cursor](interaction/oversized-cursor.md) | 一只画面宽度 7% 的光标从画外进来，把视线带到下一个目标，点一下让下一件事发生，然后离开或带进下一镜 | 2–3 | 1–3 s | tuned |
 | [type-and-filter](interaction/type-and-filter.md) | 在真实界面上按人手的速度打字搜索，网格自己收敛成一张卡，点击它，镜头推进交给详情 | 3 | 2.3–2.7 s | upstream-tested |
 | [layer-depth](camera/layer-depth.md) | 叠得几乎平的三层（图表在后、列表居中、页面在前）从后往前依次拉开、转向同一个灭点，每层留着自己的内容；虚线引向灭点，停留时机位上下浮动，三层错开着呼吸 | 2 | 2–5 s | tuned |
@@ -340,12 +341,12 @@ bin/vh recipes sample <id> --style risograph        # 换一张皮看看：联�
 
 ## 来源与许可
 
-本仓库是 MIT 许可，但下面这些文件改编自别的项目：两个是 Apache-2.0，按 Apache-2.0 第 4 条处理；三个是 MIT，带上它们的版权和许可声明。逐文件的清单在 [`NOTICE.md`](NOTICE.md)。
+本仓库是 MIT 许可，但下面这些文件改编自别的项目：两个是 Apache-2.0，按 Apache-2.0 第 4 条处理；五个是 MIT，带上它们的版权和许可声明。逐文件的清单在 [`NOTICE.md`](NOTICE.md)。
 
-- **哪些文件**：17 张配方、3 条骨架和 `sequences/README.md` 修改自 [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft)（Copyright 2026 Wei Yihao）的镜头卡、demo 和全片骨架；`cut-the-curve`、`zoom-through`、`oversized-cursor` 三张修改自 [HyperFrames](https://github.com/heygen-com/hyperframes)（Copyright 2026 HeyGen, Inc.）的 skill。MIT 的三个：16 张修改自 [motion-graphics-skills](https://github.com/charlie947/motion-graphics-skills)（Copyright (c) 2026 Charlie Hills）的效果配方，30 张修改自 [awesome-ai-motion](https://github.com/gongnyang/awesome-ai-motion)（Copyright (c) 2026 gongnyang）的卡片，`gl-transition` 一张的着色器修改自 [gl-transitions](https://github.com/gl-transitions/gl-transitions)（Copyright (c) 2017-present gl-transitions contributors）的五个转场。
-- **许可怎么算**：来自上游的部分仍按它自己的许可（Apache-2.0 或 MIT），五个上游的许可原文连同版权行逐字放在 [`LICENSES/`](LICENSES/)；本仓库的改动按 MIT。把这些文件拿到别处用，要连同它的"许可"一段、对应的许可原文和 `NOTICE.md` 一起带走。
+- **哪些文件**：17 张配方、3 条骨架和 `sequences/README.md` 修改自 [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft)（Copyright 2026 Wei Yihao）的镜头卡、demo 和全片骨架；`cut-the-curve`、`zoom-through`、`oversized-cursor` 三张修改自 [HyperFrames](https://github.com/heygen-com/hyperframes)（Copyright 2026 HeyGen, Inc.）的 skill。MIT 的五个：16 张修改自 [motion-graphics-skills](https://github.com/charlie947/motion-graphics-skills)（Copyright (c) 2026 Charlie Hills）的效果配方，30 张修改自 [awesome-ai-motion](https://github.com/gongnyang/awesome-ai-motion)（Copyright (c) 2026 gongnyang）的卡片，`gl-transition` 一张的着色器修改自 [gl-transitions](https://github.com/gl-transitions/gl-transitions)（Copyright (c) 2017-present gl-transitions contributors）的五个转场，骨架 `live-countdown` 修改自 [lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar)（Copyright (c) 2026 LemoLab）的倒计时风格，`browser-walkthrough` 一张修改自 [MengTo/Skills](https://github.com/MengTo/Skills)（Copyright (c) 2026 Meng To）的浏览器录屏 skill。
+- **许可怎么算**：来自上游的部分仍按它自己的许可（Apache-2.0 或 MIT），七个上游的许可原文连同版权行逐字放在 [`LICENSES/`](LICENSES/)；本仓库的改动按 MIT。把这些文件拿到别处用，要连同它的"许可"一段、对应的许可原文和 `NOTICE.md` 一起带走。
 - **每个文件怎么标**：frontmatter 的 `derived_from` 写上游仓库、commit 和路径；正文"来源"一节先写改了什么（文字重写，参数按本仓库的规则改过，见上文"和原文不同"的几处），末尾一段"**许可**"写明本文件修改自哪些上游文件、在哪个 commit，并链接许可原文。
-- **NOTICE 和署名**：五个上游在所用的 commit 都没有 NOTICE 文件，所以没有要转载的 NOTICE 文字。Apache-2.0 的两个，用到的上游文件里没有单独的版权头，要保留的是两份 LICENSE 里的版权行；gl-transitions 的每个着色器文件写着自己的作者，作者名写在 `gl-transition` 的"来源"里，着色器代码里保留了作者注释。shotcraft 注明它的 B、C 两式转场来自对 Linear 发布片的抽帧逆向，这句话在 `dark-tunnel`、`focus-handoff` 的"来源"里保留了。
+- **NOTICE 和署名**：七个上游在所用的 commit 都没有 NOTICE 文件，所以没有要转载的 NOTICE 文字。Apache-2.0 的两个，用到的上游文件里没有单独的版权头，要保留的是两份 LICENSE 里的版权行；gl-transitions 的每个着色器文件写着自己的作者，作者名写在 `gl-transition` 的"来源"里，着色器代码里保留了作者注释。shotcraft 注明它的 B、C 两式转场来自对 Linear 发布片的抽帧逆向，这句话在 `dark-tunnel`、`focus-handoff` 的"来源"里保留了。
 - **其余都是本仓库的**：原创的配方（`decode-type`、`gate-as-door`、`one-take-world-travel`，以及只来自拆解、没有复制任何内容的 `flash-stitch`）、本文、`_TEMPLATE.md` 和 `tools/recipes.py` 按 MIT。
 
 shotcraft 的卡片本身研究自公开的商业片和个人作品，作者声明只取手法、全部重写；我们守同一条边界。拆解和取舍的全过程见 [`cases/promo-video-shotcraft.md`](../cases/promo-video-shotcraft.md)。同作者的 video-talkcraft、anything2explainer 是 PolyForm Noncommercial：`needs`（按输入素材筛）这个思路受 talkcraft 的输入类型索引启发，没有用它的文字和代码。

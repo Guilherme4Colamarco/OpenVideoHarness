@@ -1,6 +1,6 @@
 # NOTICE: material from other projects in `recipes/`
 
-OpenVideoHarness is under the MIT License ([`../LICENSE`](../LICENSE)). The files listed below are modified versions of files from six other projects: two under the Apache License 2.0 (video-shotcraft, HyperFrames) and four under the MIT License (lemo-opuscar, motion-graphics-skills, awesome-ai-motion, gl-transitions).
+OpenVideoHarness is under the MIT License ([`../LICENSE`](../LICENSE)). The files listed below are modified versions of files from seven other projects: two under the Apache License 2.0 (video-shotcraft, HyperFrames) and five under the MIT License (lemo-opuscar, motion-graphics-skills, awesome-ai-motion, gl-transitions, MengTo/Skills).
 
 For the Apache-2.0 files the repository follows section 4 of that licence:
 
@@ -9,7 +9,7 @@ For the Apache-2.0 files the repository follows section 4 of that licence:
 - **(c) Upstream notices are kept.** The only copyright notices in the Apache-2.0 material we used are the copyright lines of the two `LICENSE` files, `Copyright 2026 Wei Yihao` and `Copyright 2026 HeyGen, Inc.`; none of the upstream files we drew on has a header of its own. The two lines are kept in the licence copies, in this file and in every 许可 paragraph. The one attribution statement in that material, video-shotcraft's note that its transition styles B and C were reverse-engineered from frames of Linear's release film, is repeated in the 来源 sections of `seam/dark-tunnel.md` and `seam/focus-handoff.md`. video-shotcraft's `references/shots/ATTRIBUTION.md` credits the sources of 48 other cards, none of which is used here.
 - **(d) NOTICE files.** Neither project has a NOTICE file at the commits used, so there is no upstream NOTICE text to carry over. HyperFrames has `skills/talking-head-recut/NOTICE.md`, which covers a skill that nothing here derives from.
 
-For the MIT files, the licence asks that its copyright and permission notice go with every copy or substantial portion. Each upstream `LICENSE` is copied byte for byte into [`LICENSES/`](LICENSES/) from the commit named below; each file's 许可 paragraph names the project, the upstream files, the commit and the copyright line, and links that copy; `derived_from` carries the same. None of the four projects has a NOTICE file at the commits used. gl-transitions' shader files each name their own author and `License: MIT`: the authors are named in the 来源 section of `seam/gl-transition.md` and the author comments stay in its shader code. awesome-ai-motion's `ATTRIBUTIONS.md` says its cards and clips are its own work and lists the projects each card took its idea from (GSAP's docs, react-bits, HyperFrames and others); those are credited in each card's 来源 section as sources of an idea, and nothing of theirs is copied here.
+For the MIT files, the licence asks that its copyright and permission notice go with every copy or substantial portion. Each upstream `LICENSE` is copied byte for byte into [`LICENSES/`](LICENSES/) from the commit named below; each file's 许可 paragraph names the project, the upstream files, the commit and the copyright line, and links that copy; `derived_from` carries the same. None of the five projects has a NOTICE file at the commits used. gl-transitions' shader files each name their own author and `License: MIT`: the authors are named in the 来源 section of `seam/gl-transition.md` and the author comments stay in its shader code. awesome-ai-motion's `ATTRIBUTIONS.md` says its cards and clips are its own work and lists the projects each card took its idea from (GSAP's docs, react-bits, HyperFrames and others); those are credited in each card's 来源 section as sources of an idea, and nothing of theirs is copied here.
 
 The parts that come from upstream stay under their licence (Apache-2.0 or MIT). Our changes, and every file in `recipes/` that is not listed here, are under this repository's MIT License. If you copy a listed file elsewhere, take its 许可 paragraph, the matching licence copy and this notice with it.
 
@@ -145,6 +145,16 @@ The parts that come from upstream stay under their licence (Apache-2.0 or MIT). 
 | File here | Modified from (upstream paths at that commit) |
 |---|---|
 | [`seam/gl-transition.md`](seam/gl-transition.md) | `transitions/CrossWarp.glsl` (Eke Péter)<br>`transitions/DirectionalWarp.glsl` (pschroen)<br>`transitions/Dreamy.glsl` (mikolalysenko)<br>`transitions/Ripple.glsl` (gre)<br>`transitions/LinearBlur.glsl` (gre) |
+
+## MengTo/Skills
+
+- Upstream: <https://github.com/MengTo/Skills>, commit `a45892d2fdadab75b31fb16abecc02f101b31c43` (2026-10-26)
+- Copyright (c) 2026 Meng To. MIT License
+- Licence copy: [`LICENSES/MIT-Skills.txt`](LICENSES/MIT-Skills.txt)
+
+| File here | Modified from (upstream paths at that commit) |
+|---|---|
+| [`interaction/browser-walkthrough.md`](interaction/browser-walkthrough.md) | `agent-skills/codex/browser-video-recording/SKILL.md`<br>`agent-skills/codex/browser-video-recording/scripts/render_browser_demo.py` |
 
 ## Not derived from upstream text
 
