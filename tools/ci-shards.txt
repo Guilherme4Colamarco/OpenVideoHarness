@@ -26,6 +26,7 @@ assets_checks 108
 concept_checks 16
 hf_checks 2
 scout_checks 13
+web_checks 4
 textcheck_checks 22
 film_checks 83
 render_checks 600

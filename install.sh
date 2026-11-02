@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # OpenVideoHarness one-line installer.
 #   curl -fsSL https://raw.githubusercontent.com/ZLHad/OpenVideoHarness/main/install.sh | bash
-#   bash install.sh [--dir ~/OpenVideoHarness] [--no-refs] [--no-skill] [--skill claude|codex|all]
+#   bash install.sh [--dir ~/OpenVideoHarness] [--no-refs] [--no-skill] [--skill claude|codex|all] [--obscura]
 # What it does, and where it puts things:
 #   1. clone the repo into --dir, newest commit only (about 200 MB on disk; a re-run moves it to the newest commit, keeping LOCAL.md and projects/)
 #   2. npm install in engines/ClaudeAnimationBase and npm ci in styles/_swatch (HyperFrames 0.8.202), both inside --dir (about 210 MB of
 #      node_modules; npm also writes its own cache, ~/.npm); unless --no-refs, fetch the read-only reference repos references/fetch.sh lists
 #      into references/repos/ (about 250 MB, git-ignored; references/fetch.sh <name> fetches one later)
 #   3. copy LOCAL.example.md to LOCAL.md (git-ignored) if there is no LOCAL.md
-#   4. unless --no-skill, write the open-video-harness skill file to ~/.claude/skills and ~/.agents/skills (--skill claude|codex: only one)
+#   4. unless --no-skill, write the skill files (skills/*: open-video-harness, open-video-harness-web) to ~/.claude/skills and
+#      ~/.agents/skills (--skill claude|codex: only one)
+#   4b. with --obscura, bin/vh web install: the pinned Obscura release (a headless browser, about 70 MB from its GitHub releases)
+#      into ~/.local/share/ovh/obscura, linked from ~/.local/bin; bin/vh web checks facts against web pages with it
 #   5. run bin/vh doctor as a final check
 # It never runs sudo and leaves your PATH and shell profile alone. Not done here: the first use of the tools downloads more, into caches under
 # your home directory, without asking:
@@ -20,10 +23,10 @@
 # The wiki's Getting Started ("What gets downloaded") has the same list.
 set -euo pipefail
 REPO="${OVH_REPO:-https://github.com/ZLHad/OpenVideoHarness.git}"
-DIR="${OVH_DIR:-$HOME/OpenVideoHarness}"; REFS=1; SKILL=all
+DIR="${OVH_DIR:-$HOME/OpenVideoHarness}"; REFS=1; SKILL=all; OBSCURA=0
 while [ $# -gt 0 ]; do case "$1" in
-  --dir) DIR="$2"; shift 2 ;; --no-refs) REFS=0; shift ;; --no-skill) SKILL=none; shift ;; --skill) SKILL="${2:?--skill needs claude|codex|all|none}"; shift 2 ;;
-  -h|--help) sed -n '2,20p' "$0"; exit 0 ;; *) echo "unknown option: $1"; exit 1 ;; esac; done
+  --dir) DIR="$2"; shift 2 ;; --no-refs) REFS=0; shift ;; --no-skill) SKILL=none; shift ;; --skill) SKILL="${2:?--skill needs claude|codex|all|none}"; shift 2 ;; --obscura) OBSCURA=1; shift ;;
+  -h|--help) sed -n '2,23p' "$0"; exit 0 ;; *) echo "unknown option: $1"; exit 1 ;; esac; done
 case "$SKILL" in claude|codex|all|none) ;; *) echo "unknown --skill '$SKILL' (claude|codex|all|none)"; exit 1 ;; esac
 say() { printf '\033[1m→ %s\033[0m\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "✗ $1 is required ($2)"; MISSING=1; }; }
@@ -61,7 +64,8 @@ if [ "$REFS" = 1 ]; then n=$(grep -cE '^(full|sparse|textonly) ' references/fetc
 say "installing the style swatch renderer (HyperFrames, for bin/vh style)"
 (cd styles/_swatch && npm ci --silent) || echo "! swatch renderer not installed; bin/vh style retries it on first use (or: cd styles/_swatch && npm ci)"
 [ -f LOCAL.md ] || cp LOCAL.example.md LOCAL.md
-[ "$SKILL" = none ] || { say "registering the skill"; bin/vh install-skill "$SKILL"; }
+[ "$SKILL" = none ] || { say "registering the skills"; bin/vh install-skill "$SKILL"; }
+[ "$OBSCURA" = 0 ] || { say "installing Obscura (bin/vh web)"; bin/vh web install || echo "! Obscura not installed; bin/vh web install retries it"; }
 say "final check"; bin/vh doctor || true
 cat <<MSG
 

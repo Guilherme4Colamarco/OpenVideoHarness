@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "note": "The Obscura release bin/vh web install takes: GitHub's release assets of h4ckf0r0day/obscura (Apache-2.0), the build with rendering (screenshots) and without stealth. size is the asset's size as the release lists it; sha256 is filled only for an asset hashed here, so the others are installed on --accept-unpinned alone, after their size matched (the hash is printed then: add it here). Changing the release: the tag, every size from gh release view <tag> -R h4ckf0r0day/obscura --json assets, the sha256 of each asset that was hashed, and modules.json's tested.",
+  "repo": "h4ckf0r0day/obscura",
+  "tag": "v0.2.5",
+  "assets": {
+    "linux-x86_64": {"name": "obscura-x86_64-linux.tar.gz", "size": 71555327, "sha256": "2116764b99bc084fae3668b68aa535b4cf456e4498845b47493ad4123e83ca36"},
+    "linux-aarch64": {"name": "obscura-aarch64-linux.tar.gz", "size": 69469539, "sha256": null},
+    "darwin-arm64": {"name": "obscura-aarch64-macos.tar.gz", "size": 67143887, "sha256": null},
+    "darwin-x86_64": {"name": "obscura-x86_64-macos.tar.gz", "size": 69385125, "sha256": null}
+  },
+  "files": ["obscura", "obscura-worker"]
+}

@@ -85,7 +85,7 @@ effort 管 agent 自己查得多细，导演模式管人拍板哪些事，两个
 2. **时间同步。** 时间依据由项目选：旁白片用配音的词级时间戳，音乐片用歌曲或谱子的节拍和小节表，数据片可以用事件表和读时。画面、声音和文字共用这一份时间（`bin/vh cues`、音乐时钟），不各自手写秒数；最后按实际输出查同步和长度。静音视频的时长由 reads 决定，画面在静音下要读得懂。
 3. **先规划再实现。** 写代码前先说清每一段要表达什么、观众依次要看懂哪些 reads（标起止时间，重要的不重叠）。分镜写在 `STORYBOARD.md`、镜头元数据或 `shots.json` 都行，只维护一份有效来源。
 4. **检查实际结果。** 新做和改过的部分连同受影响的交界重点查，没动的抽查；按要查的问题取联系表（整体）、逐帧 strip（切点和动作）或 crop（脸和细节），对照 `TASTE_CHECKLIST.md`。整片 draft 还要过清单里的打分层：换一个全新上下文的严苛 reviewer，按 8 个维度（含立意）打分；做几轮、怎样算过线按档位（`playbook/01-pipeline.md` 的"努力程度"：`standard` 1 轮，修最重要的至多 3 处，不设分数线；`studio` 做工五项都 ≥ 7 才出片），轮数有上限。检查成本很低，不要省。
-5. **事实有纪律。** 论文元数据、数字、引文一律照抄原文；拿不准的写进 `NOTES.md`，不编进视频。发布文案（标题、简介、章节）也算，交付前同样逐条对过。
+5. **事实有纪律。** 论文元数据、数字、引文一律照抄原文；拿不准的写进 `NOTES.md`，不编进视频。发布文案（标题、简介、章节）也算，交付前同样逐条对过。来源是网页时用 `bin/vh web fetch` 读（无头浏览器 Obscura，页面里的脚本会跑），网址、时间和那份副本存进项目，`NOTES.md` 抄它给的 `cite:` 行；文字靠脚本从 JSON 渲染、读出来几乎是空的页面，改用 `--dump html` 加 `--grep`。做法见 `skills/open-video-harness-web/SKILL.md`。
 6. **只在 `projects/` 里改东西。** `engines/` 是模板，`references/repos/` 是只读参考；需要时复制到自己的项目里再改。
 7. **不在文件里写 API key。** 一律从环境变量读取；缺 key 时告诉用户需要哪个。
 
@@ -109,9 +109,9 @@ OpenVideoHarness/
 ├── CLAUDE.md / AGENTS.md     入口（本文件；AGENTS.md 由 bin/vh sync-agents 生成，内容相同）
 ├── README.md / README.zh-CN.md  给人看的说明；CONTRIBUTING.md 是改本仓库时的规则；install.sh 一键安装
 ├── LOCAL.md                  本机环境（不入库；模板是 LOCAL.example.md）
-├── bin/vh                    命令行：doctor · setup · install-skill · sync-agents · sound · commands · status · activity · know · types · effort · new · footage · assets · scout · ref · review · gate · desk · concept · breakdown · cast · style · recipes · storyboard · rhythm · edit · bgm · tts · pace · voices · captions · timeline · remap · timemap · beats · music · sfx · hf-init · determinism · image · model3d · hdri · hf · components · frames · cues · readcheck · textcheck · fonts · sheet · proxy · thumbs · render · patch · versions · check · mix · qa · mux · deliver · looks · clean · gif · cover-preview
+├── bin/vh                    命令行：doctor · setup · install-skill · sync-agents · sound · commands · status · activity · know · types · effort · new · footage · assets · scout · ref · web · review · gate · desk · concept · breakdown · cast · style · recipes · storyboard · rhythm · edit · bgm · tts · pace · voices · captions · timeline · remap · timemap · beats · music · sfx · hf-init · determinism · image · model3d · hdri · hf · components · frames · cues · readcheck · textcheck · fonts · sheet · proxy · thumbs · render · patch · versions · check · mix · qa · mux · deliver · looks · clean · gif · cover-preview
 ├── tools/                    bin/vh 背后的脚本；commands.json 是命令表（`bin/vh commands` 按阶段列出），modules.json 是外接模块表（`bin/vh doctor` 报这台机器能用哪些），audio/README.md 是声音命令的参数手册，desk/README.md 是审阅台的读取约定；ci.sh 是仓库自检
-├── skills/open-video-harness/  轻量 skill：在任何目录把做视频的请求引到本仓库
+├── skills/                   轻量 skill（`bin/vh install-skill` 装上）：open-video-harness 在任何目录把做视频的请求引到本仓库；open-video-harness-web 用 Obscura 查网页事实、存参考页
 ├── video-types/              9 类视频（09 实验中）：工作流、审美、禁止项、Prompt 增量块、自查重点、案例
 ├── playbook/                 跨类型的通用知识：00 范式与引擎选型 · 01 流程、努力程度、关卡、导演模式、审阅页和审阅台 · 02 验证与取帧 · 03 运动、排版、安全区 · 04 音频 · 05 生成式视频 + 代码 · 06 学术工作里可借的机制 · 07 拉片 · 08 特效与声画联动 · 09 叙事与长片 · 10 钩子、标题、封面 · 11 作曲 · 12 立意，以及 quick.md（快出路径卡）、topics.md（选题卡）
 ├── templates/                新项目的文件：BRIEF、STORYBOARD、STYLE、REVIEW、DECISIONS、NOTES、LESSONS、TASTE_CHECKLIST；用到时再复制：SCRIPT、CHARACTER、PACKAGING

@@ -863,6 +863,77 @@
       ]
     },
     {
+      "name": "web",
+      "summary": "A web page read through Obscura, the headless browser for agents: its markdown, text, HTML or links (scripts run), or a screenshot, kept in the project with the URL and the time, so a fact in NOTES.md cites the copy it was checked on; grep finds a fact in saved pages, the text kept in a script's JSON too.",
+      "when": "checking a fact, a number or a quote against its source (the material list, the script, the publish copy before delivery); keeping a page as it looked when it is a reference",
+      "stages": ["1", "3", "9"],
+      "reads": [
+        "a URL, through obscura ($OVH_OBSCURA, else obscura on PATH, else ~/.local/bin/obscura)",
+        "<project>/research/web.jsonl and research/web/<id>/ (grep, list)",
+        "install: the GitHub release asset tools/web/pins.json names, or --from FILE"
+      ],
+      "writes": [
+        "<project>/research/web/<id>/page.<md|txt|html|links.txt>, shot.png (shot), meta.json",
+        "<project>/research/web.jsonl, one line a capture",
+        "install: ~/.local/share/ovh/obscura/<tag>/, linked from --bin (default ~/.local/bin)"
+      ],
+      "usage": [
+        {
+          "synopsis": "web fetch <project> <url> [--dump markdown|text|html|links] [--grep RE] [--selector CSS] [--wait S] [--why TEXT] [--json]",
+          "text": [
+            "the page as rendered, kept with meta.json and a cite: line; a nearly empty text or markdown says to take",
+            "--dump html and --grep (a page that renders its text from embedded JSON)"
+          ]
+        },
+        {
+          "synopsis": "web shot <project> <url> [--wait S] [--why TEXT] [--json]",
+          "text": [
+            "a 1280×720 screenshot and the page's HTML; a reference goes on to bin/vh ref add"
+          ]
+        },
+        {
+          "synopsis": "web grep <project> <id|all> <RE> [--context N] [--json]",
+          "text": [
+            "a regular expression over saved pages, HTML entities and JSON escapes decoded first"
+          ]
+        },
+        {
+          "synopsis": "web list <project> [--json]",
+          "text": [
+            "the captures: id, when, what was kept, why, the URL"
+          ]
+        },
+        {
+          "synopsis": "web install [--bin DIR] [--from FILE] [--accept-unpinned] [--force] [--dry-run] [--json]",
+          "text": [
+            "the pinned Obscura release for this platform (tools/web/pins.json), its size and sha256 checked"
+          ]
+        }
+      ],
+      "subcommands": [
+        {
+          "name": "fetch",
+          "summary": "a page's markdown, text, HTML or links, kept with its URL and time"
+        },
+        {
+          "name": "shot",
+          "summary": "a screenshot of the page, and its HTML"
+        },
+        {
+          "name": "grep",
+          "summary": "a fact found in saved pages"
+        },
+        {
+          "name": "list",
+          "summary": "the captures"
+        },
+        {
+          "name": "install",
+          "summary": "the pinned Obscura release"
+        }
+      ]
+    },
+    {
       "name": "review",
       "summary": "Build a stop's decision-first review page from its gate JSON and print the chat message.",
       "when": "at a gate, when only the page is wanted (bin/vh gate does this and more)",

@@ -127,15 +127,18 @@ shell_folder() { # shell_folder <cache dir> [version]: the folder of that chrome
   return 1
 }
 agents_body() { cat "$ROOT/CLAUDE.md"; }
-cmd_install_skill() { # writes a thin pointer skill whose harness path is this clone
-  local which=${1:-all} dests=() d r
+cmd_install_skill() { # writes the thin pointer skills (skills/*/SKILL.md) with this clone as their harness path
+  local which=${1:-all} dests=() d r s n
   case "$which" in claude) dests=("$HOME/.claude/skills") ;; codex) dests=("$HOME/.agents/skills") ;; all) dests=("$HOME/.claude/skills" "$HOME/.agents/skills") ;;
     *) echo "usage: bin/vh install-skill [claude|codex|all]   (unknown target: $which)" >&2; exit 2 ;; esac
   r=$(printf '%s\n' "$ROOT" | sed 's/[\\&#]/\\&/g')   # the clone path, escaped for the sed replacement below
   for d in "${dests[@]}"; do
-    mkdir -p "$d/open-video-harness"
-    sed "s#^Harness path (set by install.sh): .*#Harness path (set by install.sh): $r#" "$ROOT/skills/open-video-harness/SKILL.md" > "$d/open-video-harness/SKILL.md"
-    echo "$c_ok skill → $d/open-video-harness/SKILL.md (harness: $ROOT)"
+    for s in "$ROOT"/skills/*/SKILL.md; do
+      n=$(basename "$(dirname "$s")")
+      mkdir -p "$d/$n"
+      sed "s#^Harness path (set by install.sh): .*#Harness path (set by install.sh): $r#" "$s" > "$d/$n/SKILL.md"
+      echo "$c_ok skill → $d/$n/SKILL.md (harness: $ROOT)"
+    done
   done
   echo "   restart Claude Code / Codex so it picks up the skill; then ask for a video from any folder."
 }
@@ -1140,6 +1143,7 @@ cmd_assets() { [ $# -gt 0 ] || { cmd_usage assets >&2; exit 2; }; python3 "$ROOT
 cmd_cast() { [ $# -gt 0 ] || { cmd_usage cast >&2; exit 2; }; python3 "$ROOT/tools/cast.py" "$@"; }   # stdlib only
 cmd_scout() { [ $# -gt 0 ] || { cmd_usage scout >&2; exit 2; }; python3 "$ROOT/tools/scout/scout.py" "$@"; }    # stdlib; yt-dlp for YouTube
 cmd_ref() { [ $# -gt 0 ] || { cmd_usage ref >&2; exit 2; }; python3 "$ROOT/tools/scout/refs.py" "$@"; }        # stdlib; the look as scout's
+cmd_web() { [ $# -gt 0 ] || { cmd_usage web >&2; exit 2; }; python3 "$ROOT/tools/web/web.py" "$@"; }            # stdlib; the page through obscura
 cmd_hf() { [ $# -gt 0 ] || { cmd_usage hf >&2; exit 2; }; python3 "$ROOT/tools/hf.py" "$@"; }   # stdlib; add runs HyperFrames' own add
 cmd_components() { python3 "$ROOT/tools/components.py" "$@"; }   # stdlib; check reads component.js through node, sample runs the swatch renderer
 cmd_deliver() { [ $# -gt 0 ] || { cmd_usage deliver >&2; exit 2; }; python3 "$ROOT/tools/deliver.py" "$@"; }   # ffmpeg only
@@ -1161,7 +1165,7 @@ cmd_help() { python3 "$ROOT/tools/commands.py" help; }            # every usage,
 cmd_usage() { python3 "$ROOT/tools/commands.py" usage "$1"; }    # one command's usage from there; exit 1 if it has none
 
 case "${2:-}" in -h|--help)   # `bin/vh <command> -h` prints its usage instead of running it with -h as a file, project or preset name
-  case "$1" in captions|readcheck|review|storyboard|rhythm|edit|cover-preview|voices|mix|recipes|sfx|qa|assets|cast|know|looks|breakdown|concept|components|hf|footage|image|model3d|hdri|bgm|sound|scout|ref) ;;   # these print their own, fuller help
+  case "$1" in captions|readcheck|review|storyboard|rhythm|edit|cover-preview|voices|mix|recipes|sfx|qa|assets|cast|know|looks|breakdown|concept|components|hf|footage|image|model3d|hdri|bgm|sound|scout|ref|web) ;;   # these print their own, fuller help
     tts) cmd_usage tts; echo; exec python3 "$ROOT/tools/audio/tts.py" -h ;;   # + every flag, without building the mlx-audio environment first
     pace) cmd_usage pace; echo; exec python3 "$ROOT/tools/audio/pace.py" -h ;;
     doctor) cmd_usage doctor; echo; exec python3 "$ROOT/tools/doctor.py" -h ;;   # + the --json fields
@@ -1184,6 +1188,7 @@ case "${1:-}" in   # the activity log: every command that works on a project (ac
   assets) case "${2:-}" in add|remove|credits) act_start "$@" || true ;; esac ;;   # list and check only read
   cast) [ "${2:-}" != add ] || act_start "$@" || true ;;   # list and check only read
   scout|ref) case "${2:-}" in list) ;; *) act_start "$@" || true ;; esac ;;   # list only reads
+  web) case "${2:-}" in fetch|shot) act_start "$@" || true ;; esac ;;   # grep and list only read; install touches no project
   hf) [ "${2:-}" != add ] || act_start "$@" || true ;;   # catalog reads the registry, no project
   looks) [ "${2:-}" != add ] || act_start "$@" || true ;;   # check and list only read
   *) act_start "$@" || true ;;
@@ -1202,7 +1207,7 @@ case "${1:-help}" in
   hdri) shift; cmd_hdri "$@" ;;
   assets) shift; cmd_assets "$@" ;;
   cast) shift; cmd_cast "$@" ;;
-  scout) shift; cmd_scout "$@" ;; ref) shift; cmd_ref "$@" ;;
+  scout) shift; cmd_scout "$@" ;; ref) shift; cmd_ref "$@" ;; web) shift; cmd_web "$@" ;;
   hf) shift; cmd_hf "$@" ;;
   components) shift; cmd_components "$@" ;;
   review) shift; cmd_review "$@" ;;

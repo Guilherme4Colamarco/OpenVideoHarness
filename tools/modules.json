@@ -475,6 +475,19 @@
       "install": {"macos": "brew upgrade yt-dlp, or brew install yt-dlp", "linux": "uv tool upgrade yt-dlp, or uv tool install yt-dlp"}
     },
     {
+      "name": "obscura",
+      "kind": "program",
+      "purpose": "A headless browser for agents (a Rust engine with V8, no Chrome): bin/vh web reads a page with scripts run, as markdown, text, HTML or links, or as a screenshot, to check a fact against its source and keep the copy. Its own MCP server (obscura mcp) gives an agent the same browser for pages that need clicks. It blocks private addresses unless told otherwise.",
+      "version": {"min": "0.2.5", "tested": "0.2.5 on Linux x86_64 (the release asset tools/web/pins.json pins, its sha256 measured)"},
+      "license": "Apache-2.0",
+      "needs": {},
+      "adapter": ["tools/web/web.py (browser, run)", "tools/web/pins.json", "skills/open-video-harness-web/SKILL.md"],
+      "commands": ["web"],
+      "required": false,
+      "check": {"program": "obscura", "version": ["obscura", "--version"], "pattern": "obscura (\\d+(?:\\.\\d+)*)", "also": ["obscura-worker"]},
+      "install": {"macos": "bin/vh web install --accept-unpinned (the release asset by its size; github.com/h4ckf0r0day/obscura/releases)", "linux": "bin/vh web install (x86_64: size and sha256 checked; aarch64: --accept-unpinned)"}
+    },
+    {
       "name": "fxtwitter",
       "kind": "service",
       "purpose": "FixTweet's public API for X (api.fxtwitter.com/2): a profile's latest statuses with their views, likes and the followers, one status, the trends; no login and no key (scout channel, post and hot; ref add).",

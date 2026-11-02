@@ -12,5 +12,6 @@
 - 子代理模型：{例如：默认便宜一档；3D 段落和整片评审用最强档}（不填就用便宜一档的；对话里说的优先）
 - 默认预算：{例如每支片子 20 美元；写 不限 就是不设上限}（付费接口按它停；BRIEF 的 `Budget:` 优先，两处都没写就不调付费接口，见 CLAUDE.md 的底线）
 - 素材许可：{strict | record}（不填就是 strict：NC、ND、BY-SA 和许可不明的素材 `bin/vh assets check` 判失败；record：都能用，记清并列出风险。BRIEF 的 `Assets:` 优先）
+- 网页浏览器：{例如 obscura 0.2.5，在 ~/.local/bin}（`bin/vh web` 读网页、核对事实用；没有就 `bin/vh web install`，`OVH_OBSCURA` 可指定别的路径）
 - 声音库：{例如 ~/.ovh/sound}（`bin/vh sfx|bgm search`、`pick` 和 `sound add` 用；不填就是 ~/.ovh/sound；库在仓库外，文件是别人的作品）
 - 偏好：{常用平台、画幅、配音音色、品牌色}
