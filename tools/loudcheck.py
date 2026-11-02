@@ -7,8 +7,9 @@ The target is what the film's sound was mixed to: the newest complete mix record
 bin/vh mix writes beside its output: its lufs= and tp=, from the record's target, or from its arguments and the chain's
 defaults in an older record), else the BRIEF's "- Loudness: -16 LUFS" line, else bin/vh mix's own −14 LUFS and −1.5
 dBTP. Integrated within --tol LU of it; true peak at most the mix's ceiling + 0.5 dB (an AAC encode moves the peak by
-about ±0.1 dB), never stricter than the platforms' −1 dBTP. --lufs and --tp say a target outright. Off the target is
-said ("WARN …"), not failed: a quiet art film may be on purpose. A film with no sound is said and left there.
+an amount that depends on the content and the bitrate, +0.75 dB on a 2026-10 narration film: tools/audio/README.md),
+never stricter than the platforms' −1 dBTP. --lufs and --tp say a target outright. Off the target is said ("WARN …"),
+not failed: a quiet art film may be on purpose. A film with no sound is said and left there.
 Exit 0 (the words say how it went); 2 a usage error, or ffmpeg could not measure it.
 --json: {"audio": bool, "integrated", "true_peak", "lra", "target": {"lufs", "tol", "tp", "from"}, "ok", "problems": [text]}.
 """

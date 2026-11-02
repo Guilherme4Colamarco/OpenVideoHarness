@@ -67,6 +67,10 @@ bin/vh beats <任意音乐文件>                          # 外来音乐的节�
 | `elevenlabs` / `dashscope` | 接口已留，还没实测 |
 
 **每条配音都要查**：加 `--align gemini` 让机器逐句转写、对稿（见下一节），或者至少看一眼 `timeline.<lang>.json` 里每句的时长。被标出来的句子重跑，或者换 provider。
+- 相似度只抓得住跑偏的句子：长句里多一个"啊"，或者"32 亿"念成了"3.2 亿"，相似度几乎不变，掉不到 0.85 以下，不会被标出来。一支 2026-10 的片子每次合成后，把每章的音频和那章的稿子一起交给 Gemini，让它逐句说出念得和稿子不一样的地方：三次抓到多余的"啊""呢"，一次抓到念错的数字。
+- Gemini 的音色 Charon 最容易在逗号后的停顿处带出"啊"，删掉那个逗号就好。
+- `--candidates` 按音色挑，不管念得对不对，所以每条候选都要听，挑念对的那条换进去（`tools/audio/README.md` 的"整段合成"）。
+- 改了稿、只想重配那几句：`--resume` 会拒绝改过的稿子，做法见 `tools/audio/README.md` 的"改稿后只重配几句"。
 
 #### 词级时间和对稿检查（`--align gemini`，或本机的 `--align local`）
 
@@ -170,7 +174,7 @@ bin/vh qa mix $A/stems --beats $A/music.beats.json   # 只看混音报告（词�
 
 **混音报告**：`bin/vh qa mix <stems>`（或 `bin/vh qa … --stems` 输出的最后一段）逐句列出人声高出音乐多少、每个词有没有被盖住、每个音效相对锚点的响度。硬失败（退出码 1）是：有一句低于 profile 的硬下限；说话时 hero 音效超过它的上限；被盖住的词超过 profile 允许的比例；同一类音效的中位数偏出范围 3 LU 以上；timeline 有句子，人声 stem 却全是静音；一个 cue 对上了却听不见（只以"弱"通过，又被判 `BURIED`）。怎么读、怎么改见 `tools/audio/README.md`。`bin/vh mix` 报错退出时什么都不写，上一次的 `mix.wav` 还在，所以先看它的退出码；`bin/vh qa` 看到混音比事件表这些输入旧，会在报告开头和最后一行写 `STALE?`，只是警告，退出码不变。
 
-**AAC 编码会抬高真峰值**：每个成片都要量编码后的文件（`ffmpeg -i final.mp4 -af ebur128=peak=true -f null -`），高于 −1.5 dBTP 就用更低的 `tp=` 重混。门禁是 WAV（`bin/vh qa mix.wav …`）；成片 mp4 再跑一次，cue 的问题只作警告（`tools/audio/README.md` 的"AAC 编码和 cue check"）。
+**AAC 编码会抬高真峰值**：每个成片都要量编码后的文件（`ffmpeg -i final.mp4 -af ebur128=peak=true -f null -`），高于 −1.5 dBTP 就用更低的 `tp=` 重混。旁白片也会抬得多：一支 2026-10 的讲解片（成片的 AAC 约 206 kb/s）用默认的 `tp=-1.65` 混，封装后是 −0.9 dBTP。门禁是 WAV（`bin/vh qa mix.wav …`）；成片 mp4 再跑一次，cue 的问题只作警告（`tools/audio/README.md` 的"AAC 编码和 cue check"）。
 
 ### 歌曲（带人声演唱）
 

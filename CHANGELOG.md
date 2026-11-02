@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+**Notes from the last film: fillers and numbers the similarity misses, voicing a few edited lines again, AAC on a narration film**
+- Why: a 2026-10 film found these by hand. Each is small enough for a note, so no tool works differently.
+- `playbook/04-audio.md`, on checking each take: the similarity flags a line that went astray, not one extra "啊" or "32 亿" read as "3.2 亿" in a long line. That film gave Gemini each chapter's audio with its script after every take and asked where the reading differed from the script: three extra fillers and one misread number. Gemini's Charon voice adds "啊" most at a pause after a comma, and taking the comma out fixed it. `--candidates` picks a take by its voice, not by what it says, so every take is listened to.
+- `tools/audio/README.md`, voicing again only the lines whose words changed (`--resume` refuses a changed script): set those lines in `vo/<lang>/_run.json` to the values the refusal names, move their audio away (with `--join block`, every `_blockNN.` file of their block, the `--candidates` takes too, or `--resume` picks among the old ones) and run the same command with `--resume`. Adding or removing a line, moving a blank line or `--join all` means voicing the whole script again.
+- AAC raised that film's true peak by 0.75 dB at about 206 kb/s (0.6 dB after a mix at `tp=-3.0`): a data point in `tools/audio/README.md` and a line in the playbook. `tools/loudcheck.py`'s help said an encode moves it by about ±0.1 dB.
+
 **Landing a PR with less ceremony: CI on pull requests and nightly on main, `tools/land.py`, a batch in one PR**
 - Why: in five days of October 2026 CI ran 179 times. 36 of those runs were on main, each testing again a tree a PR had just passed (the ruleset merges only a branch up to date with main, and the squash keeps its tree), and 59 were cancelled by a newer push. Landing each PR (bringing it up to date, checking what it changes, writing the squash message, queuing it, then checking what landed and tidying up) took about ten commands by hand, and every PR stacked on another had to be brought up to date and tested again once the one under it landed.
 - `.github/workflows/ci.yml` runs on pull requests and once a night on main (18:17 UTC), no longer on each push to main; by hand as before. The nightly run keeps main's caches, the only ones besides its own that a pull request can restore, and catches what changes under the checks (the runner image, its Chrome, brew's ffmpeg).
