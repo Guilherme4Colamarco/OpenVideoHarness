@@ -23,7 +23,7 @@ const FILM = {
                                // baseline y; the last caption of a line may stay hold s into the pause; min s on screen
   bar: null,                   // the chapter bar's span { from, to } (cues or seconds); default: the first chapter to the end
   grain: 0.04,                 // film grain over the picture (0: none)
-  fadeIn: 0, fadeOut: 0.6,     // from and to black at the very start and end (fadeIn 0: frame 0 is already the picture)
+  fadeIn: 0, fadeOut: 0.6,     // from and to black at the very start and end (fadeIn 0: frame 0 is already the picture; the last frame is black, shutter and all)
   images: {},                  // { key: "assets/x.jpg" }: loaded in ready; image(key, …) draws one (src/10-draw.js)
   ui: { text: "#F4F1EA", accent: "#E8A33D", dark: "8,10,14" },   // the chapter bar and the captions
 };

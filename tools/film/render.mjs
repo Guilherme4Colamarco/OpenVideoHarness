@@ -25,9 +25,9 @@
 //   --png          lossless frames into the encoder (slower, larger pipes); default JPEG at --quality 95
 //   --alpha        a transparent film, to lay over footage or into an editor: the browsers' default background is made
 //                  transparent, the frames are captured as PNG with their alpha, and the video is ProRes 4444 with alpha
-//                  (prores_ks, yuva444p10le, BT.709 tags) in a .mov (default <project>/out/<page>.mov). What the page
-//                  paints stays opaque, so a page that fills its canvas has nothing to show through: it is said. Large:
-//                  about 1–12 bits a pixel. A HyperFrames composition: npx hyperframes render --format mov
+//                  (prores_ks at a fixed quantizer, yuva444p10le, an 8-bit alpha, BT.709 tags) in a .mov (default
+//                  <project>/out/<page>.mov). What the page paints stays opaque, so a page that fills its canvas has nothing
+//                  to show through: it is said. Large: about 1–8 bits a pixel. A HyperFrames composition: npx hyperframes render --format mov
 //   --motion-blur 8  N from 1 to 64: each frame the mean of N sub-frames, the page drawn at N times spread over --shutter
 //                  (a fraction of a frame, more than 0 and at most 1; default 0.5: a 180° shutter) centred on the frame's
 //                  own time, so what moves is blurred along its path and what holds still (a caption riding the camera)
@@ -332,10 +332,14 @@ const x264 = (file, sub = 1) => spawn("ffmpeg", ["-v", "error", "-y", "-f", "ima
   "-vf", sub > 1 ? `${meanFilter(sub, fps)},${vf}` : vf, ...X264(), file], { stdio: ["pipe", "ignore", "pipe"] });
 const capture = png ? { format: "png" } : { format: "jpeg", quality: o.quality };
 // --alpha: PNG frames with their alpha into ProRes 4444 (every frame a keyframe; the chunks stay a GOP long for the
-// workers and a resume), 4:4:4 with a 16-bit alpha, BT.709 limited range with all four tags
+// workers and a resume), 4:4:4, BT.709 limited range with all four tags. A fixed quantizer, since prores_ks's own rate control
+// multiplies its bit budget by 20 once there is alpha (proresenc_kostya_common.c). An 8-bit alpha, since ProRes codes alpha
+// losslessly and 16 bits keep every bit of a page's dither: the PNG frames have 8, and of --motion-blur's mean it loses at most
+// half a level of 255. Together they make a real film's file 2.5 times smaller, its composites about 56 dB from before
+const PRORES_Q = 6, PRORES_ALPHA_BITS = 8;
 const VFA = `${EVEN},scale=out_color_matrix=bt709:out_range=tv:flags=accurate_rnd+full_chroma_int,format=yuva444p10le,setparams=${COLOR}`;
 const prores = (file, sub = 1) => spawn("ffmpeg", ["-v", "error", "-y", "-f", "image2pipe", "-framerate", String(fps * sub), "-c:v", "png", "-i", "-",
-  "-vf", sub > 1 ? `${meanFilter(sub, fps, true)},${VFA}` : VFA, "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-alpha_bits", "16", "-vendor", "apl0",
+  "-vf", sub > 1 ? `${meanFilter(sub, fps, true)},${VFA}` : VFA, "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-qscale:v", String(PRORES_Q), "-alpha_bits", String(PRORES_ALPHA_BITS), "-vendor", "apl0",
   "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-r", String(fps), file], { stdio: ["pipe", "ignore", "pipe"] });
 const encoder = alpha ? prores : x264;
 // an edit list's footage: raw RGB from ffmpeg's decoder into an x264 with the same output end (OUT, X264: the same SPS/PPS
@@ -430,7 +434,7 @@ const todo = plan.map((_, i) => i).filter((i) => !reuse.has(i)), nTodo = todo.re
 // page) to 0.4 (4K 3D with grain): refuse only when even 0.01 does not fit, say so when 0.06–0.4 might not and nothing
 // measured it (the estimate below measures it)
 const keptBytes = [...reuse].reduce((s, i) => s + fs.statSync(kept(i)).size, 0), free = freeOnDisk();
-const peak = (bpp) => keptBytes + 2 * px[0] * px[1] * nTodo * (alpha ? 25 * bpp : bpp) / 8;   // ProRes 4444: 1–12 bits a pixel, about 25 times x264's
+const peak = (bpp) => keptBytes + 2 * px[0] * px[1] * nTodo * (alpha ? 25 * bpp : bpp) / 8;   // ProRes 4444: 1–8 bits a pixel, about 25 times x264's
 const peakOf = reuse.size ? `the ${nTodo} frames left to draw and the joined copy (${reuse.size} chunks kept, ${gb(keptBytes)} GB)` : `${n} frames`;
 if (peak(0.01) > free) {
   await first.close(); keepFinished();
@@ -697,7 +701,7 @@ const sidecar = {
   })(),
   kind: first.kind, width: first.width, height: first.height, dpr: o.dpr, pixels: [st.width, st.height], fps, frames: n,
   span: [+(k0 / fps).toFixed(6), +(k1 / fps).toFixed(6)], first_frame: k0, capture: png ? "png" : `jpeg q${o.quality}`,
-  encoder: alpha ? { codec: "prores_ks", profile: "4444", alpha_bits: 16, gop, pix_fmt: st.pix_fmt, color: [st.color_range, st.color_space, st.color_primaries, st.color_transfer] }
+  encoder: alpha ? { codec: "prores_ks", profile: "4444", qscale: PRORES_Q, alpha_bits: PRORES_ALPHA_BITS, gop, pix_fmt: st.pix_fmt, color: [st.color_range, st.color_space, st.color_primaries, st.color_transfer] }
     : { codec: "libx264", crf: o.crf, preset: o.preset, gop, keyint_min: gop, sc_threshold: 0, pix_fmt: st.pix_fmt, color: [st.color_range, st.color_space, st.color_primaries, st.color_transfer] },
   ...(alpha ? { alpha: true } : {}),
   // bin/vh patch draws its frames the same way; version: blur.mjs's sha256, how the sub-frames' times were found

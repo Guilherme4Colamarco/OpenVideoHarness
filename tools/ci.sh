@@ -1320,6 +1320,20 @@ print(s.duration_tag({"DURATION-eng": "00:00:03.000000000"}), s.duration_tag({"E
     b=$(vh check "$t/still.mp4" --json 2>/dev/null)
     python3 -c 'import json,sys; d=json.loads(sys.argv[1]); f=[x for x in d["findings"] if x["kind"]=="check.static"]; sys.exit(0 if f and f[0]["remedies"][0]["run"]=="bin/vh recipes list --role breath" else 1)' "$b" \
       && ok "check --json: each finding carries its remedies" || bad "check --json remedies: $(printf '%s' "$b" | tail -c 400)"
+    # the ending: a fade still under way at the last frame is a warning with its way out; one that reaches black, and a film that simply stops, say nothing
+    ffmpeg -nostdin -v error -f lavfi -i testsrc2=s=320x180:r=30:d=2 -vf "fade=t=out:st=1.4:d=0.8,format=yuv420p" "$t/short.mp4"
+    ffmpeg -nostdin -v error -f lavfi -i testsrc2=s=320x180:r=30:d=2 -vf "fade=t=out:st=1.2:d=0.7,format=yuv420p" "$t/toblack.mp4"
+    ffmpeg -nostdin -v error -f lavfi -i testsrc2=s=320x180:r=30:d=2 -pix_fmt yuv420p "$t/stops.mp4"
+    a=$(vh check "$t/short.mp4" 2>&1); rc=$?
+    b=$(vh check "$t/toblack.mp4" 2>&1); rc2=$?
+    c=$(vh check "$t/stops.mp4" 2>&1); rc3=$?
+    d=$(vh check "$t/short.mp4" --json 2>/dev/null)
+    case "$rc:$rc2:$rc3:$a" in 0:0:0:*"ending: the picture is still fading when the film stops"*"fade (1): "*"bin/vh patch"*)
+      if ! grep -q "ending:" <<<"$b$c" && python3 -c 'import json,sys; d=json.loads(sys.argv[1]); f=[x for x in d["findings"] if x["kind"]=="check.fade"]; sys.exit(0 if f and f[0]["severity"]=="warn" and f[0]["frame"]==59 else 1)' "$d"
+      then ok "check --motion: a fade still under way at the last frame is a warning with a way out; one that reaches black, and a film that just stops, are not"
+      else bad "check on the ending (a fade to black, or a film that stops, warned; or no finding in --json): $b $c $(printf '%s' "$d" | tail -c 300)"; fi ;;
+      *) bad "check on a fade that stops short (exits $rc, $rc2, $rc3): $a" ;;
+    esac
     # the publishing copy in PACKAGING.md: a Bilibili description of 2100 characters is over its 2000 (said, not a failure)
     { printf '%s\n' '# PACKAGING' '## 发布文案' '### B站' '标题：一个够短的标题' '标签：科普, 物理' '简介：'; python3 -c "print('字' * 2100)"; printf '%s\n' '### YouTube' 'Title: short'; } > "$t/sp/PACKAGING.md"
     a=$(vh check "$t/sp/out/ref.mp4" 2>&1); rc=$?
@@ -5366,6 +5380,22 @@ sys.exit(0 if len(y) == 160 * 90 and not [v for v in y[45 * 160:46 * 160] if 38 
       then ok "render, $say: the blurred chunk a stopped render kept is not taken (the motion blur changed), the film drawn sharp"
       else bad "render, $say, over a blurred chunk a stopped render kept (exit $rc:$rc2): $(printf '%s' "$a" | head -c 400)"; fi
     done
+    # canvas-film's fadeOut reaches black on the last frame, which is drawn one frame before the film's end; the frames before it are not black yet
+    vh new short fo --engine canvas-film --dir "$t" >/dev/null 2>&1; p=$(ls -d "$t"/*-fo 2>/dev/null)
+    printf '%s\n' 'Object.assign(FILM, { width: 160, height: 90, timeline: false, duration: 2, grain: 0, fadeOut: 0.5, images: {} });' \
+      'const SHOTS = [{ id: "S01", at: 0, draw() { X.fillStyle = "#e0e0e0"; X.fillRect(0, 0, W, H); } }];' > "$p/src/50-shots.js"
+    a=$(vh frames "$p" --at 1.8,1.966667 --motion-blur 4 --out "$t/fo" 2>&1); rc=$?
+    # a machine without the template's faces (the Linux runner) draws in a fallback and says so, which is exit 1; that alone is fine here
+    if [ $rc = 1 ] && printf '%s' "$a" | grep -q 'fonts this machine does not have' \
+      && ! printf '%s\n' "$a" | grep -E 'while loading:|^  t=[0-9.]+ s:|just after the last frame' | grep -qv 'fonts this machine does not have'; then rc=0; fi
+    if [ $rc = 0 ] && python3 - "$t/fo" <<'PY'
+import glob, subprocess, sys
+fs = sorted(glob.glob(sys.argv[1] + "/*.png"))
+top = [max(subprocess.run(["ffmpeg", "-v", "error", "-i", f, "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout) for f in fs]
+sys.exit(0 if len(top) == 2 and top[0] > 20 and top[1] == 0 else 1)
+PY
+    then ok "canvas-film: fadeOut is black on the last frame, shutter and all, and not on the frames before it"
+    else bad "canvas-film fadeOut on the last frame (exit $rc): $(printf '%s' "$a" | tail -c 300)"; fi
     # --alpha: a page that leaves its background clear gives ProRes 4444 with that alpha; a page that paints one is told so;
     # an .mp4 is refused (no alpha there), and patch refuses an alpha film
     mkdir -p "$t/al"
@@ -5389,6 +5419,7 @@ side = json.load(open(f + ".render.json"))
 ok = (st["codec_name"], st["profile"], st["nb_frames"], st["color_space"]) == ("prores", "4444", "75", "bt709") and st["pix_fmt"].startswith("yuva444p")
 ok = ok and at(5, 5)[3] == 0 and at(150, 80)[3] == 255 and abs(at(150, 80)[0] - 0xdc) <= 2 and side.get("alpha") is True and side["encoder"]["codec"] == "prores_ks"
 ok = ok and "crf" not in side["encoder"] and "preset" not in side["encoder"]   # x264's settings do not apply to ProRes
+ok = ok and side["encoder"]["qscale"] == 6 and side["encoder"]["alpha_bits"] == 8   # without these, prores_ks gives colour 20 times its budget and alpha 16 lossless bits
 sys.exit(0 if ok else 1)
 PY
     then ok "render --alpha: ProRes 4444 with the page's own alpha (clear where it draws nothing, opaque where it does), joined over chunks; a page that paints its background is told, an .mp4 refused, patch refuses it"

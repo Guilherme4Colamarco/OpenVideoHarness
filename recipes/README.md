@@ -91,6 +91,7 @@
 | [accelerando-cuts](rhythm/accelerando-cuts.md) | 同一产品的 6 个构图硬切，切点间隔每两刀减半，越切越快地逼近，最后一刀定格回全景慢推 | 5 | 4.3–4.8 s | tuned |
 | [drop-blackout-slam](rhythm/drop-blackout-slam.md) | 正常播放中一帧切进 12 帧的黑，画面里什么都没有，然后主视觉带着震屏和一圈亮环砸进来：全片最高潮的前一拍 | 5 | 3.7–4.7 s | tuned |
 | [paparazzi-flash](rhythm/paparazzi-flash.md) | 三次快门白闪，每闪硬切同一素材的一个更近的裁切（全景 → 卡片 → 数字），最后停在那个数字上 | 4–5 | 4.2–4.5 s | tuned |
+| [thread-through-cuts](rhythm/thread-through-cuts.md) | 一个亮点拖着一条线从这一闪跑进下一闪，切点都落在它跑动的时候；闪得再快，眼睛也有东西可跟，一串画面读作一条路 | 5 | 3–5.7 s | battle-tested |
 
 **文字 `type/`**
 
@@ -100,6 +101,7 @@
 | [breath-title-card](type/breath-title-card.md) | 一句话逐词压印上屏，只有一个强调词，短横线收住，停到读完：两段高能镜头之间的喘息和路标 | 1–2 | 3.2–5.5 s | upstream-tested |
 | [char-stagger](type/char-stagger.md) | 一行短标题的字按阅读顺序从下方 64 px 升起、同时淡入，每个字比前一个晚 1 帧，各走约 0.6 s；中文按字、英文按字母 | 2 | 1–3 s | tuned |
 | [decode-type](type/decode-type.md) | 字像被程序一点点解出来：乱码按 2 帧一换，每个字在 0.3 s 内依次锁定，锁定之后才开始算读的时间 | 2–4 | 0.2–1 s | tuned |
+| [diffusion-reveal](type/diffusion-reveal.md) | 整个画面先淹进噪声，一道前沿走过，噪声退去，字一个个长出来；最要紧的字最后落下，一记重音，两帧之内读得清 | 4–5 | 1.5–5 s | battle-tested |
 | [elastic-type](type/elastic-type.md) | 一个词的每个字母站在锁死的基线上拉高变窄，从中间的字母开始往两边传，中间那个最高、最窄、是唯一的强调色，旁边一个读数从 wdth 100 数到 62 | 4 | 2–5 s | tuned |
 | [glyph-roll](type/glyph-roll.md) | 每个字是一格只露一个字高的槽，字条往上滚、换成新词的同位字，左边的先走、每格晚 1–2 帧；状态词、按钮标签换值时用 | 2 | 0.67–1.5 s | tuned |
 | [handwrite-on](type/handwrite-on.md) | 一个手写的词或签名按真实笔顺被笔尖一笔笔写出来：笔画走中心线、圆头，每笔的时间跟长度成正比，曲线处慢、笔与笔之间停一下 | 1 | 1.5–4 s | tuned |
@@ -347,6 +349,6 @@ bin/vh recipes sample <id> --style risograph        # 换一张皮看看：联�
 - **许可怎么算**：来自上游的部分仍按它自己的许可（Apache-2.0 或 MIT），七个上游的许可原文连同版权行逐字放在 [`LICENSES/`](LICENSES/)；本仓库的改动按 MIT。把这些文件拿到别处用，要连同它的"许可"一段、对应的许可原文和 `NOTICE.md` 一起带走。
 - **每个文件怎么标**：frontmatter 的 `derived_from` 写上游仓库、commit 和路径；正文"来源"一节先写改了什么（文字重写，参数按本仓库的规则改过，见上文"和原文不同"的几处），末尾一段"**许可**"写明本文件修改自哪些上游文件、在哪个 commit，并链接许可原文。
 - **NOTICE 和署名**：七个上游在所用的 commit 都没有 NOTICE 文件，所以没有要转载的 NOTICE 文字。Apache-2.0 的两个，用到的上游文件里没有单独的版权头，要保留的是两份 LICENSE 里的版权行；gl-transitions 的每个着色器文件写着自己的作者，作者名写在 `gl-transition` 的"来源"里，着色器代码里保留了作者注释。shotcraft 注明它的 B、C 两式转场来自对 Linear 发布片的抽帧逆向，这句话在 `dark-tunnel`、`focus-handoff` 的"来源"里保留了。
-- **其余都是本仓库的**：原创的配方（`decode-type`、`gate-as-door`、`one-take-world-travel`，以及只来自拆解、没有复制任何内容的 `flash-stitch`）、本文、`_TEMPLATE.md` 和 `tools/recipes.py` 按 MIT。
+- **其余都是本仓库的**：原创的配方（`decode-type`、`diffusion-reveal`、`gate-as-door`、`one-take-world-travel`、`thread-through-cuts`，以及只来自拆解、没有复制任何内容的 `flash-stitch`）、本文、`_TEMPLATE.md` 和 `tools/recipes.py` 按 MIT。
 
 shotcraft 的卡片本身研究自公开的商业片和个人作品，作者声明只取手法、全部重写；我们守同一条边界。拆解和取舍的全过程见 [`cases/promo-video-shotcraft.md`](../cases/promo-video-shotcraft.md)。同作者的 video-talkcraft、anything2explainer 是 PolyForm Noncommercial：`needs`（按输入素材筛）这个思路受 talkcraft 的输入类型索引启发，没有用它的文字和代码。

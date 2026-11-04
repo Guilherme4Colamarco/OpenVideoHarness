@@ -2009,7 +2009,7 @@
             "black/freeze/silence detection + isolated-frame scan (one-frame capture glitches; exit 1 on any not",
             "confirmed in the project's confirmed.json (a designed flash: why, evidence, and the key the scan prints,",
             "which lapses when the picture there changes) nor declared for this run with --allow <seconds or spans a-b>;",
-            "evenly spaced ones are periodic motion, said, not failed) + motion (hard cuts from dark to bright, still stretches of 3 s or more: warnings) + colour tags",
+            "evenly spaced ones are periodic motion, said, not failed) + motion (hard cuts from dark to bright, still stretches of 3 s or more, a fade that stops short of black: warnings) + colour tags",
             "+ loudness (integrated and true peak of the film's sound against what it was mixed to: the project's mix record, else the BRIEF, else −14 LUFS ±1; ≤ −1 dBTP: a warning); --against: a 4K render vs the approved 1080p cut",
             "(exit 1 when the picture differs: a layout that breaks at device scale 2). The result is kept in the",
             "video's project as out/check/<name>.check.json (bin/vh status reads the last; with the video's size and",

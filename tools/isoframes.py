@@ -49,6 +49,9 @@ MOTION (--motion). Same 192x108 grey frames. The thresholds are first guesses ch
            2 s or more goes on the summary line; runs of 3 s or more are listed, each said to be frozen (not even frames a
            second apart differ) or a slow drift. Black runs (under 2 % of the pixels above 25 of 255) are left to blackdetect; a
            held formula on a black background is not black.
+  ending   the mean brightness still falling on each of the last 4 frames, by at least 6 levels in all and 1 on the last step,
+           and the last frame still above 4: a fade that stops short of black. A fade timed to the film's length ends after
+           its last frame is drawn (that frame is at length − 1 frame), and the next shot, or a clip's end, then jumps.
   summary  the share of frame pairs where over 0.5 % of the picture changes, the hard cuts, the still share, and the
            largest jump inside a shot: leaving out 0.35 s after each cut and changes as large as a cut, a frame-to-frame
            change over 8 times the shot's median (and over 6 levels) in a shot that moves at all. On the showcase films
@@ -71,6 +74,7 @@ STILL_STEP, STILL_SHARE = 6, 0.002   # a frame pair is still when under STILL_SH
 STILL_SUM, STILL_LIST = 2.0, 3.0     # still runs of STILL_SUM s count towards the share; runs of STILL_LIST s are listed
 JUMP_RATIO, JUMP_MIN, JUMP_MOVING, AFTER_CUT = 8.0, 6.0, 0.3, 0.35
 MOVING = 0.005
+FADE_FRAMES, FADE_DROP, FADE_STEP, FADE_BLACK = 4, 6.0, 1.0, 4.0   # --motion: still falling on the last frames, and not black yet
 PIC_COLS, PIC_ROWS, PIC_MAX, PIC_MEAN = 8, 6, 1, 0.25   # --confirmed: the key's thumbnails, and how far they may move
 
 def die(msg):
@@ -231,6 +235,11 @@ def motion_report(st, n, fps, hits_near):
         if k is not None and med > JUMP_MOVING and peak > JUMP_MIN and peak > JUMP_RATIO * med:
             jumps.append((k, peak, med))
     moving = float(np.mean([x > MOVING for x in area[1:]])) if n > 1 else 0.0
+    # ending: a fade still under way when the film stops. A film that ends on a hold, or on a dark picture, falls short of none of this
+    tail = [float(x) for x in luma[-FADE_FRAMES:]] if n >= FADE_FRAMES else []
+    fade_tail = None
+    if tail and all(y < x for x, y in zip(tail, tail[1:])) and tail[0] - tail[-1] >= FADE_DROP and tail[-2] - tail[-1] >= FADE_STEP and tail[-1] > FADE_BLACK:
+        fade_tail = [(n - 1) / fps, tail[0], tail[-1]]
     t = lambda k: f"{k / fps:.2f}"
     still_s = sum((j - i + 1) / fps for i, j, _ in stretches)
     long_ = [x for x in stretches if (x[1] - x[0] + 1) / fps >= STILL_LIST]
@@ -245,7 +254,10 @@ def motion_report(st, n, fps, hits_near):
         lines.append(f"  cuts: {len(flashes)} hard cut(s) from dark to bright, which read as a flash: "
                      + ", ".join(f"{t(i)} s (mean {b:.0f} → {a:.0f})" for i, b, a in flashes[:8]) + (" …" if len(flashes) > 8 else "")
                      + " (dim the bright side or fade it in over a few frames)")
-    nums = {"moving": moving, "still_share": still_s / (n / fps), "cuts": [k / fps for k in cuts], "flashes": [[i / fps, b, a] for i, b, a in flashes],
+    if fade_tail:
+        lines.append(f"  ending: the picture is still fading when the film stops: its last {FADE_FRAMES} frames fall from mean {tail[0]:.0f} to {tail[-1]:.0f}, not to black "
+                     "(a fade timed to the film's length ends after its last frame is drawn; meant to end there: fine)")
+    nums = {"moving": moving, "fade_tail": fade_tail, "still_share": still_s / (n / fps), "cuts": [k / fps for k in cuts], "flashes": [[i / fps, b, a] for i, b, a in flashes],
             "static": [[i / fps, (j + 1) / fps, fz] for i, j, fz in stretches], "jumps": [[k / fps, p, m] for k, p, m in jumps]}
     return lines, nums
 

@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+**canvas-film docs: flashes shorter than a shot, and writing your own compositing pipeline**
+- Why: an intro needed both and neither was written down. A shot must be at least 0.2 s, and the Three.js layer has no post-processing.
+- `engines/canvas-film/README.md`: several short flashes share one shot and pick the flash by frame number, since `--motion-blur`'s shutter closes only at shot boundaries. The new 自己写合成 section: leave `three` off the shots and use the renderer yourself; render targets sized by `PRX`; linear light; no dither in the alpha; a distance field for lettering, with its normals from a slightly blurred copy.
+
+**Two recipes from an 8 s intro: a line through fast cuts, text out of noise**
+- Why: both held up in a film someone watched and passed. The first answered a verdict on the cut before it, whose flashes were each fine but read as a jumble together.
+- `recipes/rhythm/thread-through-cuts.md`: a spark trailing a line runs through every cut, at the same place on either side, so very different flashes read as one route. Its tail shortens as the cuts speed up, and flashes of 6 frames or fewer share one long curve; without those two it tangles or zigzags.
+- `recipes/type/diffusion-reveal.md`: the picture drowns in noise, a front sweeps back, cells getting finer towards it, text grows out one character every 3 frames, and the character that matters lands last, readable from its second frame. A hint of it shows in the noise for the last 8 frames first.
+- Both `battle-tested`, with sketches and sample sheets; the counts in the READMEs, the overview diagrams and the homepage go to 74.
+
+**Look at the 4K at 1:1 before delivery**
+- Why: an intro's chrome lettering had ribs along its curved bevels, a distance field's staircase magnified by the reflection. They do not show on 1080p contact sheets, and the film had passed review on those.
+- `playbook/02-verification.md`, the line on 4K: crop the brightest, most mirror-like thing at 1:1 and look.
+
+**`bin/vh check` says when a fade stops short of black, and canvas-film's `fadeOut` reaches it**
+- Why: a fade timed to the film's length ends after its last frame is drawn, because that frame is at length − 1 frame. An 8 s intro's last frame still had a mean of 13 of 255, so the next shot would have jumped, and its transparent version vanished instead of fading out.
+- `tools/isoframes.py --motion`: the mean brightness still falling on each of the last 4 frames, by at least 6 levels in all and 1 on the last step, with the last frame above 4, is a warning (`check.fade`, with its ways out in `tools/remedies.json`). Never a failure: a film may mean to end there. Of the 30 films at hand it flagged that intro's own cuts and one hand-drawn film that ends mid-shrink.
+- `engines/canvas-film`: `fadeOut` now ends 1.5 frames before the film does, so the last frame is black with `--motion-blur`'s shutter counted. Before, the default 0.6 s fade left 5.6 % of the picture on it. New projects only: a project keeps the engine it was made with.
+- `playbook/02-verification.md`, 已知的坑: a line on it.
+
+**`bin/vh render --alpha`: files about 2.5 times smaller**
+- Why: a 2.4 s transparent title at 4K came out at 839 MB (2.9 Gbps). `prores_ks` multiplies its bit budget by 20 once there is alpha (`proresenc_kostya_common.c`), and ProRes codes alpha losslessly, so 16 bits kept all of a page's dither.
+- `tools/film/render.mjs`: a fixed quantizer (`-qscale:v 6`) and an 8-bit alpha. One second of that title: 1080p 140 → 57 MB, 4K 394 → 139 MB. Composited over dark, grey, orange and white, the worst of five frames is 56 dB from before at 1080p and 57 dB at 4K. 8 bits are all the PNG frames have; of `--motion-blur`'s mean it loses at most half a level of 255.
+- Tried and left out: smoothing the colour where alpha is tiny, which looked like the cause at first. As an ffmpeg chain it saved another 14 % and cost 10 dB.
+- The sidecar's `encoder` says `qscale` and `alpha_bits`, and CI holds them.
+
 **Narration for long explainers: a reversal every few minutes, three voices, saying things precisely**
 - Why: in 2026-11 the script of a 30-minute narrated explainer went through two outside reviews. What they found that any narrated film runs into is written down here as defaults; the rest stays with that film.
 - `playbook/09-narrative.md` §10, on sentences: paragraph after paragraph ending on a short summary line reads like tapping the blackboard, so the short line is kept for the one that matters; everyday words, but few slang ones, one or two vivid phrases a chapter; telling a case, explaining an idea and talking about people each take their own voice; say things precisely rather than fully (an observational study gives a correlation, a manuscript nobody has reviewed is not a paper, an experiment's result says how it was measured, a made-up scene says so and is called back with "假如", a big judgment that cannot be backed becomes a question for the viewer), by scoping the words rather than adding hedges; and from a reviewer's or another model's sample rewrites, take the meaning, not the sentences.
