@@ -158,6 +158,7 @@
 | [chart-morph](data/chart-morph.md) | 六根柱子从左到右依次收细成发丝，一条线从左往右画过它们的顶点，点逐个弹出，最后一个点挂上数值标签；前后是同一组数 | 2 | 2–5 s | tuned |
 | [flowing-paths](data/flowing-paths.md) | 一个源头错开发出三个光点，沿弯曲的连线流向三个渠道，线是被光点一路点亮的；光点到达时节点回一圈涟漪，第二批光点汇进结果，线色从冷色渐到强调色 | 3 | 3–5 s | tuned |
 | [kpi-lift](data/kpi-lift.md) | 四个强调色角标先卡住要讲的那张指标卡，其余仪表盘变暗，那张卡从它真实的位置和大小放大成占满画面的大卡，原位留下空槽，大卡的内容后到 | 3 | 2–5 s | tuned |
+| [edited-plate-lapse](fx/edited-plate-lapse.md) | 同一张图编辑出白天、去掉物体的几版，几乎逐像素对齐；昼夜靠版与版交叉淡化，物体抠成一层从遮挡后面升起，图不扭曲；满高时合成就是原图，无缝接下一镜 | 2–4 | 3–8 s | battle-tested |
 | [shutter-reveal](fx/shutter-reveal.md) | 整个画面被七条深色竖板盖着，竖板从左到右依次往自己的中线收窄到没有，每条带一道淡淡的亮边；露出的画面随后慢慢推近，左上角一个"新品"标签 | 3 | 1.5–5 s | tuned |
 | [group-photo-launch](outro/group-photo-launch.md) | 每个展示过的功能派一个代表元素，从四面八方飞来围成合影，字标最后压印落款，全片能量最高 | 5 | 5–6 s | upstream-tested |
 | [particle-mark](outro/particle-mark.md) | 左边一片撒开的小点，带着短拖尾沿弧线飞进右边标志的形状里，左边的先走、带一点种子随机；落定的点排在标志形状内的网格上，所以标志是清楚的 | 3 | 2–5 s | tuned |
@@ -349,6 +350,6 @@ bin/vh recipes sample <id> --style risograph        # 换一张皮看看：联�
 - **许可怎么算**：来自上游的部分仍按它自己的许可（Apache-2.0 或 MIT），七个上游的许可原文连同版权行逐字放在 [`LICENSES/`](LICENSES/)；本仓库的改动按 MIT。把这些文件拿到别处用，要连同它的"许可"一段、对应的许可原文和 `NOTICE.md` 一起带走。
 - **每个文件怎么标**：frontmatter 的 `derived_from` 写上游仓库、commit 和路径；正文"来源"一节先写改了什么（文字重写，参数按本仓库的规则改过，见上文"和原文不同"的几处），末尾一段"**许可**"写明本文件修改自哪些上游文件、在哪个 commit，并链接许可原文。
 - **NOTICE 和署名**：七个上游在所用的 commit 都没有 NOTICE 文件，所以没有要转载的 NOTICE 文字。Apache-2.0 的两个，用到的上游文件里没有单独的版权头，要保留的是两份 LICENSE 里的版权行；gl-transitions 的每个着色器文件写着自己的作者，作者名写在 `gl-transition` 的"来源"里，着色器代码里保留了作者注释。shotcraft 注明它的 B、C 两式转场来自对 Linear 发布片的抽帧逆向，这句话在 `dark-tunnel`、`focus-handoff` 的"来源"里保留了。
-- **其余都是本仓库的**：原创的配方（`decode-type`、`diffusion-reveal`、`gate-as-door`、`one-take-world-travel`、`thread-through-cuts`，以及只来自拆解、没有复制任何内容的 `flash-stitch`）、本文、`_TEMPLATE.md` 和 `tools/recipes.py` 按 MIT。
+- **其余都是本仓库的**：原创的配方（`decode-type`、`diffusion-reveal`、`edited-plate-lapse`、`gate-as-door`、`one-take-world-travel`、`thread-through-cuts`，以及只来自拆解、没有复制任何内容的 `flash-stitch`）、本文、`_TEMPLATE.md` 和 `tools/recipes.py` 按 MIT。
 
 shotcraft 的卡片本身研究自公开的商业片和个人作品，作者声明只取手法、全部重写；我们守同一条边界。拆解和取舍的全过程见 [`cases/promo-video-shotcraft.md`](../cases/promo-video-shotcraft.md)。同作者的 video-talkcraft、anything2explainer 是 PolyForm Noncommercial：`needs`（按输入素材筛）这个思路受 talkcraft 的输入类型索引启发，没有用它的文字和代码。

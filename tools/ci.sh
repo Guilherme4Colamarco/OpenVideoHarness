@@ -1087,6 +1087,16 @@ PY
   case "$rc:$a" in 1:*"X / 推特: ✓ 简介 description 279 weighted"*"B站 + X: ✗ 简介 description 287 weighted"*"official, x)"*"小红书 xhs: · 简介 description 300 characters"*)
       ok "packcheck: X's limit in its weighted length (Chinese 2, a link 23), the tightest platform of a heading, a one-letter name standing alone" ;;
     *) bad "packcheck on X copy (rc $rc): $a" ;; esac
+  # tags split at commas and 、 only (AI for Science is one), a # after a space starts a new one; a topic with a space is said
+  # where a topic stops at it; B站's 10 has no source: said, not over; 视频号's title limit is second-hand and does count
+  mkdir -p "$t/pk"
+  { printf '%s\n' '# PACKAGING' '## 发布文案' '### B站' '标签：AI for Science, 科普、科研，a, b, c, d, e, f, g, h' '### 抖音' '标签：#AI for Science #科研' '### 小红书' '标签：#科研 #博士' '### YouTube' '标签：AI for Science, research'
+    printf '%s\n' '### 视频号' "标题：$(python3 -c "print('字' * 51)")"; } > "$t/pk/PACKAGING.md"
+  a=$(python3 "$ROOT/tools/packcheck.py" "$t/pk/PACKAGING.md" --json "$t/pk/pack.json"); rc=$?
+  case "$rc:$a" in 1:*"B站: ! 标签 tags 11 tags (limit 10, unverified)"*"抖音: · 标签 tags 2 tags"*"抖音: a topic stops at a space there: AI for Science"*"小红书: · 标签 tags 2 tags"*"YouTube: · 标签 tags 2 tags"*"视频号: ✗ 标题 title 51 characters (limit 50, second-hand)"*)
+      if printf '%s' "$a" | grep -Eq '(小红书|YouTube): a topic stops' || ! python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if len(d["notes"])==1 and sum(f["over"] for f in d["fields"])==1 else 1)' "$t/pk/pack.json"
+      then bad "packcheck's notes: $a"; else ok "packcheck: tags split at commas and 、 only, a spaced topic said where it stops at the space, a limit with no source said but not over"; fi ;;
+    *) bad "packcheck on tags (rc $rc): $a" ;; esac
   # what X takes for a link (twitter-text's rules): a bare domain with a TLD it knows, with its path, Chinese straight
   # before it staying text; not after - _ . / @ $, not a file name with a TLD it does not know, not a host with no TLD
   if a=$(python3 - <<'PY'
@@ -1248,6 +1258,31 @@ PY
     && printf '%s' "$a" | grep -q 'deliver.json stays, and what it names): out/upload.mp4' && ! printf '%s' "$a" | grep -Eq '^ +[0-9.]+ [KMG]?B  out/upload.mp4$'
   then ok "clean: an unreadable delivery record still keeps the copy its name names"
   else bad "clean with a broken delivery record (rc $rc): $(printf '%s' "$a" | tail -c 600)"; fi
+  # a video the project names as a deliverable (PACKAGING.md, BRIEF's Deliverables) is the film, not a render; a comment names
+  # nothing; a file on the asset ledger stays; a folder of the project's own in out/ is listed with what would go and stay
+  c="$t/clnamed"; mkdir -p "$c/out/ch01" "$c/out/samples" "$c/out/review" "$c/assets"; printf -- '- Deliverables: film-4k.mp4, cover\n' > "$c/BRIEF.md"
+  printf '%s\n' '<!-- not this: `out/draft.mp4` -->' '| 抖音 | `out/film-1080p.mp4`（2 GB） |' > "$c/PACKAGING.md"
+  for f in out/film-1080p.mp4 out/film-4k.mp4 out/draft.mp4 out/ch01/ch01.mp4 out/ch01/sheet.png out/samples/keep.mp4; do printf x > "$c/$f"; done
+  vh assets add "$c" out/samples/keep.mp4 --class own --origin self >"$t/clnamed.txt" 2>&1; b=$(cat "$t/clnamed.txt")
+  a=$(vh clean "$c" 2>&1); rc=$?
+  d=$(OVH_TRASH_DIR="$t/home/trash6" vh clean "$c" --yes 2>&1); rc2=$?
+  left=$(cd "$c/out" && find . -type f | sed 's|^\./||' | LC_ALL=C sort | tr '\n' ' ')
+  case "$b" in *"it is under out/"*) e=1 ;; *) e=0 ;; esac
+  if [ $rc = 0 ] && [ $rc2 = 0 ] && [ "$e" = 1 ] && [ "$left" = "ch01/sheet.png film-1080p.mp4 film-4k.mp4 samples/keep.mp4 " ] \
+    && printf '%s' "$a" | grep -q "named as deliverables (BRIEF.md's Deliverables, PACKAGING.md): out/film-4k.mp4, out/film-1080p.mp4" \
+    && printf '%s' "$a" | grep -q 'on the asset ledger, stays (better under assets/): out/samples/keep.mp4' \
+    && printf '%s' "$a" | grep -q "not known to clean" && printf '%s' "$a" | grep -Eq 'out/ch01/ .* would go, .* would stay' \
+    && printf '%s' "$d" | grep -q 'then bin/vh assets check' && vh assets check "$c" >/dev/null 2>&1
+  then ok "clean: a video the project names as a deliverable and a file on the ledger stay; a folder of its own is listed; it says to run assets check. assets add warns about out/"
+  else bad "clean on named deliverables (rc $rc / $rc2, left: $left): $(printf '%s' "$a$b$d" | tail -c 900)"; fi
+  # a source PACKAGING.md mentions is no film found, so nothing starts to go; a ledger record of "./" keeps nothing extra and does not crash it
+  c="$t/clsrc"; mkdir -p "$c/out" "$c/footage" "$c/assets"; printf x > "$c/BRIEF.md"; printf '素材：`footage/raw.mp4`\n' > "$c/PACKAGING.md"
+  for f in footage/raw.mp4 out/draft.mp4; do printf x > "$c/$f"; done
+  printf '%s' '{"v": 1, "assets": [{"id": "z", "kind": "data", "path": "./"}]}' > "$c/assets/ledger.json"
+  a=$(vh clean "$c" 2>&1); rc=$?
+  if [ $rc = 0 ] && printf '%s' "$a" | grep -q 'no film found' && ! printf '%s' "$a" | grep -Eq 'draft.mp4|Traceback|named as deliverables'
+  then ok "clean: a source PACKAGING.md mentions is no film found; a ledger record of the project itself keeps nothing extra"
+  else bad "clean on a mentioned source (rc $rc): $(printf '%s' "$a" | tail -c 500)"; fi
   # spec: the file against the BRIEF's Output and Resolution lines (python3 only)
   mkdir -p "$t/sp/out"
   sp() { ffmpeg -nostdin -v error -f lavfi -i "color=c=0x202020:s=${1}:r=${2}:d=${5:-1},${3}" -pix_fmt yuv420p "$t/sp/out/$4.mp4"; }
@@ -3641,6 +3676,42 @@ PY
       then ok "assets credits: the lines a licence asks for (title, author, source, licence and their pages), courtesy for public domain, the AI-content notice with what it covers; --json; the BRIEF's language"
       else bad "assets credits --json: $b"; fi ;;
     *) bad "assets credits: $a" ;; esac
+  # what to paste has no word for the publisher (that goes to stderr); lines become one only when no words are lost: the same
+  # words, or, from one source, one's inside the other's; what was dropped is said; another author, title or licence stays apart
+  q="$t/cm"; cp -R tools/assets/fixtures/project "$q"; mkdir -p "$q/out"
+  for n in a b c d e f g h; do printf "$n" > "$q/assets/img/$n.png"; done; printf x > "$q/assets/img/t.csv"
+  vh assets add "$q" assets/img/a.png --license 'CC BY 4.0' --author Ann --source-url https://example.org/p --attribution 'Ann, CC BY 4.0' >/dev/null 2>&1
+  vh assets add "$q" assets/img/b.png --license 'CC BY 4.0' --author Ann --source-url https://example.org/p --attribution 'Ann (CC BY 4.0)' >/dev/null 2>&1
+  vh assets add "$q" assets/img/c.png --license 'CC BY 4.0' --author Bea --source-url https://example.org/p --attribution 'Bea, CC BY 4.0' >/dev/null 2>&1
+  vh assets add "$q" assets/img/d.png --license 'CC BY 4.0' --origin download --attribution 'Same words, CC BY 4.0' >/dev/null 2>&1
+  vh assets add "$q" assets/img/e.png --license 'CC BY 4.0' --origin download --attribution 'Same words, CC BY 4.0' >/dev/null 2>&1
+  vh assets add "$q" assets/img/t.csv --license 'CC BY 4.0' --origin self --derived-from a --attribution 'Data from Ann, CC BY 4.0' >/dev/null 2>&1
+  vh assets add "$q" assets/img/g.png --license 'CC BY 3.0' --author Cy --source-url https://example.org/q --title One >/dev/null 2>&1
+  vh assets add "$q" assets/img/h.png --license 'CC BY 4.0' --author Cy --source-url https://example.org/q --title Two >/dev/null 2>&1
+  a=$(vh assets credits "$q" --lang zh 2>"$t/cm.err"); rc=$?; b=$(cat "$t/cm.err")
+  case "$rc|$a|$b" in 0"|"*"- Ann, CC BY 4.0"*"- Bea, CC BY 4.0"*"- Same words, CC BY 4.0"*"《One》，Cy"*"CC BY 3.0"*"《Two》，Cy"*"CC BY 4.0"*"本片含 AI 生成的内容"*"|"*"for you, not for the text: 发布时"*"merged, same source: "*"Ann (CC BY 4.0)"*"merged, same source: "*"Data from Ann, CC BY 4.0"*)
+      if printf '%s' "$a" | grep -Eq '发布时|Ann \(CC BY|Data from Ann' || [ "$(printf '%s' "$a" | grep -c 'Same words')" != 1 ]; then bad "assets credits, one line a source: $a"
+      else ok "assets credits: text to paste without the publisher's note (stderr); one line only when no words are lost, what was dropped said; another author, title or licence version apart"; fi ;;
+    *) bad "assets credits, one line a source (rc $rc): $a | $b" ;; esac
+  # --film: what that film's page loaded, any mix's inputs and what they came from; a data file stays; the rest is listed. Against
+  # PACKAGING.md's numbers either count will do; another is said
+  printf x > "$q/out/film.mp4"; printf '%s' '{"page": "../index.html", "files": {"assets/img/a.png": null, "assets/img/stray.png": null}}' > "$q/out/film.mp4.render.json"
+  a=$(vh assets credits "$q" --film out/film.mp4 --lang zh 2>"$t/cm.err"); rc=$?; b=$(cat "$t/cm.err"); c=$(vh assets credits "$q" --film out/nope.mp4 2>&1); rc2=$?
+  d=$(vh assets credits "$q" --film out/film.mp4 --json 2>/dev/null)
+  if [ $rc = 0 ] && [ $rc2 = 2 ] && printf '%s' "$a" | grep -q '^- Ann, CC BY 4.0' && ! printf '%s' "$a" | grep -Eq 'Bea|Same words|本片含' \
+    && printf '%s' "$b" | grep -q 'left out, not in what out/film.mp4 used: .*knock' \
+    && python3 -c 'import json,sys; c=json.loads(sys.argv[1]); sys.exit(0 if c["film"]=="out/film.mp4" and "hero" in c["left_out"] and c["aigc"]["count"]==0 and "t" not in c["left_out"] else 1)' "$d"
+  then ok "assets credits --film: only what the film used, a data file kept, the rest listed on stderr; a film with no list of files is a usage error"
+  else bad "assets credits --film (rc $rc / $rc2): $a | $b | $c"; fi
+  printf '%s\n' '- AI 生成内容：有。图片 9 件。' > "$q/PACKAGING.md"; a=$(python3 "$ROOT/tools/packcheck.py" "$q/PACKAGING.md" 2>&1)
+  printf '%s\n' '- AI 生成内容：有。图片 1 件，视频 1 段。' > "$q/PACKAGING.md"; b=$(python3 "$ROOT/tools/packcheck.py" "$q/PACKAGING.md" 2>&1)
+  printf '%s\n' '<!-- 图片 9 件 -->' '- AI 生成内容：有。' > "$q/PACKAGING.md"; c=$(python3 "$ROOT/tools/packcheck.py" "$q/PACKAGING.md" 2>&1)
+  printf '%s\n' '- AI 生成内容：有。图片 1 幅，分辨率 1080p。' > "$q/PACKAGING.md"; e=$(python3 "$ROOT/tools/packcheck.py" "$q/PACKAGING.md" 2>&1)
+  printf '%s\n' '- AI 生成内容：有。图片 9 件。' > "$q/PACKAGING.md"; python3 "$ROOT/tools/packcheck.py" "$q/PACKAGING.md" --json "$t/cm.pack.json" >/dev/null 2>&1
+  case "$a|$b|$c" in *"says {'image': 9}, bin/vh assets credits says {'image': 1, 'video': 1}"*"|"*"|"*)
+      if printf '%s%s%s' "$b" "$c" "$e" | grep -q 'says {' || ! grep -q "says {'image': 9}" "$t/cm.pack.json"; then bad "packcheck's AI count, a false alarm or a note lost: $b | $c | $e"
+      else ok "packcheck: the AI count on PACKAGING.md's line against bin/vh assets credits, only the kinds it gives, said when it differs and on record with no 发布文案"; fi ;;
+    *) bad "packcheck's AI count: $a | $b | $c" ;; esac
   # the commands write their notes into the project's activity log, list and check do not log
   if grep -q '"cmd":"assets"' "$p/.ovh/activity.jsonl" 2>/dev/null && grep -q '"summary":"added new' "$p/.ovh/activity.jsonl" \
      && ! grep -q '"args":\["check"' "$p/.ovh/activity.jsonl"; then ok "assets add and remove are in the activity log with what they did; check and list are not logged"

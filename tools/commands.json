@@ -659,9 +659,10 @@
           ]
         },
         {
-          "synopsis": "assets credits <project> [--lang zh|en] [--out f] [--json]",
+          "synopsis": "assets credits <project> [--film <video>] [--lang zh|en] [--out f] [--json]",
           "text": [
-            "credits: the credit lines and the AI-content notice"
+            "credits: text to paste, one credit line a source and the AI-content sentence; what is for the publisher goes to stderr;",
+            "--film: only what that film used"
           ]
         },
         {
@@ -2214,9 +2215,10 @@
           "text": [
             "a finished project's intermediates (frames, check frames, render",
             "chunks, an edit list's chunk cache, proxies, drafts, old takes, stems, node_modules, the earlier versions in out/versions but the newest",
-            "--keep-versions N of each film) to the Trash; the film (and what bin/vh deliver made from it),",
-            "covers, captions, review pages, check records, sources, docs and the narration in use stay. Without --yes it only lists them;",
-            "--delete deletes what the tools can make again"
+            "--keep-versions N of each film) to the Trash; the film (what bin/vh deliver made from it, a video BRIEF.md's Deliverables or",
+            "PACKAGING.md names), covers, captions, review pages, check records, sources, docs, what the asset ledger has on record and the",
+            "narration in use stay. Without --yes it only lists them, the project's own folders in out/ too: read that list first.",
+            "--delete deletes what the tools can make again. Moved anything by hand? Run bin/vh assets check after"
           ]
         }
       ]

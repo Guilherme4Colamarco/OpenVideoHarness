@@ -219,6 +219,8 @@ def pack_findings(pk):
     for f in pk.get("fields") or []:
         if f.get("over"):
             out.append(finding("check.packaging", "warn", f"PACKAGING.md · {f['heading']}: {f['field']} {f['count']} {f['unit']}, over the limit of {f['limit']} ({f.get('sure')})", evidence=f))
+    for n in pk.get("notes") or []:
+        out.append(finding("check.packaging", "warn", f"PACKAGING.md · {n}"))
     return out
 
 

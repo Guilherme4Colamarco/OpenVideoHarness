@@ -7,13 +7,17 @@ Reads the "## 发布文案" section of PACKAGING.md (templates/PACKAGING.md show
 platform (B站, 抖音, YouTube, 小红书, 视频号, or any other name; a heading that names several is held to the smallest
 limit of each), and under it
     标题：<one line>
-    标签：<tags, separated by commas, 、 or spaces>
+    标签：<tags, separated by commas or 、; a # after a space starts a new one too (#a #b). AI for Science is one tag>
     简介：<the first line, and every line after it up to the next 标题/标签/简介 or heading>
 (English labels work too: Title:, Tags:, Description:). Placeholders in braces ({…}) and HTML comments are skipped.
 Characters are counted as the platforms count them in their boxes: one per character whatever the script (a Chinese
 character is one, so is a letter; a line break counts one), except where a platform's own rule is known (COUNTS below:
 X weighs a Chinese character as 2). The limits (LIMITS below) are in playbook/10 with their sources and the date they
-were checked; where a platform's limit is not known, only the counts are printed.
+were checked; where a platform's limit is not known, only the counts are printed. A limit nobody could find a source for
+("unverified") is said with a !, and does not count as over.
+Two reminders, neither counting as over: a tag with a space on a platform whose topics stop at a space (抖音, 小红书, 视频号), and,
+in a project, the numbers on the "AI 生成内容" line against bin/vh assets credits (only the kinds the line gives a number
+for; all the records, or what the newest films used, either will do).
 Exit: 0 every field within its limit (or nothing to check) · 1 a field over its limit · 2 no such file.
 """
 import json, re, sys, unicodedata
@@ -22,12 +26,14 @@ from pathlib import Path
 # platform: (names it goes by, {field: (limit, how sure)}); playbook/10-hooks-and-packaging.md, 发布文案的长度
 LIMITS = {
     "youtube": (("youtube", "油管"), {"title": (100, "official"), "desc": (5000, "official")}),
-    "bilibili": (("b站", "bilibili", "哔哩哔哩"), {"title": (80, "second-hand"), "desc": (2000, "second-hand")}),
+    "bilibili": (("b站", "bilibili", "哔哩哔哩"), {"title": (80, "second-hand"), "desc": (2000, "second-hand"), "tags": (10, "unverified")}),
     "douyin": (("抖音", "douyin"), {"title": (30, "second-hand")}),
     "xiaohongshu": (("小红书", "xiaohongshu", "rednote"), {"title": (20, "second-hand")}),
-    "channels": (("视频号", "channels"), {}),
+    "channels": (("视频号", "channels"), {"title": (50, "second-hand")}),
     "x": (("x", "twitter", "推特"), {"desc": (280, "official")}),   # a post: no title; the text is the 简介
 }
+TOPICS = {"douyin", "xiaohongshu", "channels"}   # a topic there stops at a space: `AI for Science` would be `AI`
+AI_WORDS = {"图片": "image", "图": "image", "视频": "video", "声音": "audio", "旁白": "audio", "配音": "audio", "配乐": "audio", "音乐": "audio", "音效": "audio"}
 FIELDS = {"标题": "title", "title": "title", "简介": "desc", "description": "desc", "描述": "desc", "标签": "tags", "tags": "tags"}
 NAMES = {"title": "标题 title", "desc": "简介 description", "tags": "标签 tags"}
 
@@ -145,13 +151,13 @@ def platforms_of(name):
 
 
 def binding(keys, field, value):
-    """The tightest limit on a field over the platforms named, each counting the value its own way (COUNTS): (count,
-    limit, how sure and whose, unit) for the one the value comes closest to or goes furthest over, or None."""
+    """The tightest limit on a field over the platforms named, each counting the value its own way (COUNTS; tags by the
+    tag): (count, limit, how sure and whose, unit) for the one the value comes closest to or goes furthest over, or None."""
     best = None
     for k in keys:
         if field not in LIMITS[k][1]: continue
         cap, sure = LIMITS[k][1][field]
-        count, unit = COUNTS.get(k, (len, "characters"))
+        count, unit = (lambda v: len(tags_of(v)), "tags") if field == "tags" else COUNTS.get(k, (len, "characters"))
         n = count(value)
         if best is None or n - cap > best[0] - best[1]: best = (n, cap, f"{sure}, {k}" if len(keys) > 1 else sure, unit)
     return best
@@ -186,7 +192,38 @@ def parse(text):
 
 
 def tags_of(s):
-    return [t for t in re.split(r"[,，、\s]+", s) if t.strip("#")]
+    return [t.strip() for t in re.split(r"[,，、]+|\s+(?=#)", s) if t.strip(" \t#")]
+
+
+def ai_said(text):
+    """{kind: count} from the numbers on PACKAGING.md's "AI 生成内容" line (图片 22 件，旁白 14 段), and that line."""
+    m = re.search(r"^\s*[-*]?\s*AI 生成内容\s*[：:](.*)$", re.sub(r"<!--.*?-->", "", text, flags=re.S), flags=re.M)
+    said = {}
+    for word, n in re.findall(r"(图片|视频|声音|旁白|配音|配乐|音乐|音效|图)\s*(\d+)(?![0-9A-Za-z.])", m.group(1) if m else ""):
+        said[AI_WORDS[word]] = said.get(AI_WORDS[word], 0) + int(n)
+    return said
+
+
+def ai_check(path, text):
+    """A line when the numbers PACKAGING.md gives for the AI-generated content are not bin/vh assets credits' (all the
+    records, or what the newest films used). None when they are, when it gives none, or when the ledger cannot say."""
+    said = ai_said(text)
+    if not said:
+        return None
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "assets"))
+    try:
+        import assets as A, ledger, uses
+        project = ledger.project_of(Path(path).resolve().parent)
+        if project is None or not (project / ledger.LEDGER).is_file():
+            return None
+        everything = A.credits(project)["aigc"]["kinds"]
+        used = uses.uses(project)
+        counted = [everything, A.credits(project, used=used)["aigc"]["kinds"]] if used["films"] else [everything]
+    except Exception:   # a reminder: a ledger that cannot be read is for bin/vh assets check to say
+        return None
+    if any(all(c.get(k, 0) == n for k, n in said.items()) for c in counted):
+        return None
+    return f"  ! AI 生成内容 in {Path(path).name} says {said}, bin/vh assets credits says {everything}: copy the numbers from it"
 
 
 def main():
@@ -200,11 +237,22 @@ def main():
         p = p / "PACKAGING.md"
     if not p.is_file():
         print(f"packcheck: no {p}", file=sys.stderr); sys.exit(2)
-    got = parse(p.read_text(encoding="utf-8"))
+    text = p.read_text(encoding="utf-8")
+    got = parse(text)
+    ai = ai_check(p, text)
+    if ai:
+        print(ai)
+    over, rec, notes = 0, [], [ai.strip(" !")] if ai else []
+    def record():
+        if not jpath:
+            return
+        try: Path(jpath).write_text(json.dumps({"file": str(p), "fields": rec, "notes": notes}, ensure_ascii=False), encoding="utf-8")
+        except OSError as e: print(f"packcheck: could not write {jpath} ({e.strerror or e})", file=sys.stderr)
     if not any(got.values()):
         print(f"packaging: {p.name} has no 发布文案 to measure (## 发布文案, a ### heading per platform: templates/PACKAGING.md)")
+        if notes:
+            record()
         sys.exit(0)
-    over, rec = 0, []
     for head, fields in got.items():
         if not fields:
             continue
@@ -214,23 +262,26 @@ def main():
             if f not in fields:
                 continue
             v = fields[f]
-            lim = binding(keys, f, v) if f != "tags" else None
+            lim = binding(keys, f, v)
             n, unit = (len(tags_of(v)), "tags") if f == "tags" else (len(v), "characters")
             if lim:
                 n, cap, sure, unit = lim
-                bad = n > cap
+                loose = sure.startswith("unverified")   # a number nobody could source: said, not held against the copy
+                bad = n > cap and not loose
                 over += bad
-                parts.append(f"{'✗' if bad else '✓'} {NAMES[f]} {n} {unit} (limit {cap}, {sure})")
+                parts.append(f"{'✗' if bad else '!' if n > cap else '✓'} {NAMES[f]} {n} {unit} (limit {cap}, {sure})")
                 rec.append({"heading": head, "field": f, "count": n, "unit": unit, "limit": cap, "sure": sure, "over": bad})
             else:
                 parts.append(f"· {NAMES[f]} {n} {unit}")
                 rec.append({"heading": head, "field": f, "count": n, "unit": unit, "limit": None, "over": False})
         print(f"packaging · {head}: " + " · ".join(parts))
+        spaced = [t.lstrip("#") for t in tags_of(fields.get("tags", "")) if re.search(r"\s", t.strip().lstrip("#"))] if TOPICS & set(keys) else []
+        if spaced:
+            notes.append(f"{head}: a topic stops at a space there: {', '.join(spaced)}: write it without one")
+            print(f"  ! {notes[-1]}")
     if over:
         print("  over a limit: shorten it there, or move the long part (credits, sources) to a pinned comment; the upload page has the last word")
-    if jpath:
-        try: Path(jpath).write_text(json.dumps({"file": str(p), "fields": rec}, ensure_ascii=False), encoding="utf-8")
-        except OSError as e: print(f"packcheck: could not write {jpath} ({e.strerror or e})", file=sys.stderr)
+    record()
     sys.exit(1 if over else 0)
 
 

@@ -1004,7 +1004,7 @@ cmd_check() {
   if [ -n "$proj" ] && [ -f "$proj/PACKAGING.md" ]; then
     pk=$(python3 "$ROOT/tools/packcheck.py" "$proj/PACKAGING.md" ${J:+--json "$J/pack.json"} 2>&1) || prc=$?
     case "$prc:$pk" in
-      0:*"no 发布文案"*) ;;
+      0:*"no 发布文案"*) printf '%s\n' "$pk" | grep '^  !' || true ;;
       0:*) printf '%s\n' "$pk" | sed "s/^packaging/$c_ok packaging/" ;;
       1:*) echo "$c_wa the publishing copy in PACKAGING.md is over a platform's limit (playbook/10, 发布文案的长度):"; printf '%s\n' "$pk" | sed 's/^/   /' ;;
       *) echo "$c_wa packaging check failed: $pk"; ck_note skipped.txt $'packaging\tthe packaging check failed' ;;

@@ -91,6 +91,7 @@ const CHAPTERS = [{ at: 0, title: "挂在字上" }, { at: "@b1", title: "翻一�
   | `blot` | 1.2 s | 墨从几处晕开，软边，晕到的地方露出新画面 |
 
 - 章节进度条（顶上）：每章一格，宽度按章名；当前一章随进度填满，章名一直显示；每章开头约 3 s 显示全部章名（章名太多、一行放不下时，只显示当前一章）。显示的时段由 `FILM.bar = { from, to }` 定，默认从第一章到片尾。
+- 改章名：源头是 `src/50-shots.js` 的章节表（剪辑表的片子，`edit.json` 写了 `chapters` 就是它）。翻页、进度条、审阅台和 `bin/vh cues --chapters` 都从 `window.film.chapters` 读，改这一处就够。分章配音时旁白那边常有自己的一份（`audio/` 下的章节 json、时间轴里的章节），定一份当源头，其余用脚本生成，别手改几处。文档靠手改：SCRIPT、STORYBOARD、BRIEF 的 Outline、PACKAGING，`grep` 一遍旧名字；`bin/vh cues <项目> --chapters` 重出章节表贴回 PACKAGING。进度条上的字变了，每章开头都显示全部章名，往往等于整片重渲，定稿前算这笔账。
 
 ### 用同一份镜头表生成分镜和节奏图
 
