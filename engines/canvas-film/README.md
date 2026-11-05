@@ -113,7 +113,7 @@ bin/vh rhythm <项目> --shots film.html # 有手写 shots.json 时，明确改�
 ## 字
 
 - 画字一律用 `txt(s, x, y, o)`。字号在最底层兜住：`font()` 不会给出小于 `FILM.minText`（默认 44 px，按 BRIEF 的"在哪看"改，见 `playbook/03` §4）的字号，`measure()` 用的是同一个字号，排版不会和画出来的对不上。字幕的字号另有一档，`minText` 管不到：`FILM.caption.size`（默认 52；`playbook/03` §4 的字幕下限 desktop 48、feed 115），改"在哪看"时两样一起改。
-- 故意要小、要淡的字（一页原文当底纹、时间轴的刻度）写 `texture: true`：它可以小于下限，也不算 read。
+- 故意要小、要淡的字（一页原文当底纹、时间轴的刻度）写 `texture: true`：它可以小于下限，也不算 read。其余的字写小了不会报错，`txt()` 和 `measure()` 直接按下限画和量，所以用户本人放宽字号的导航字也要写 `texture: true`，否则写多小都是下限（要查遮挡，再调 `read()` 登记）。
 - `ready` 时每个镜头抽 5 个时刻各画一遍，绕过 `txt()` 自己设 `X.font` 写下的小字也会被抓到，打成一行 `console.error`（`bin/vh frames` 在开头"while loading"下面列出来），写明镜头和那段字。判的是代码要的字号，不是动画缩放途中的大小。
 - `label(t, at, s, x, y, o)`：一行字在 `at` 升起，停到镜头结束（或 `o.until` 前淡出）；完全出来以后登记成 read，`bin/vh textcheck` 按它查遮挡和对比。`stamp()` 盖下以后也算 read。自己画的字要登记，就在 `draw` 里调 `read(text, start, end)`。
 - 跨过切点或转场一直在屏上的字（HUD、角标、跨段的字卡）：`read()` 默认只记本镜头直接画进画面的那一段（转场进来以后到镜头结束），跨切点的一张卡会被记成两段短的，`bin/vh readcheck` 报出假的 FAIL。写 `read(text, start, end, { overlay: true })`（`label()` 写 `overlay: true`），按 start 到 end 记成一条，只受片头片尾的淡入淡出和片长约束。卡要由它跨过的每个镜头画（或者画在镜头之上的一层里）；录制器只画镜头，所以登记写在镜头的 `draw` 里，哪个镜头都行，几处一样的调用只留一条。第 4 个参数照旧可以只写种类（`"label"`），也可以写进对象：`{ kind: "label", overlay: true }`。区间是你声明的：`bin/vh textcheck` 照样在区间里抽样（跨过切点的那几次也抽），哪个时刻没画出来，列成 "missing from some samples"。
@@ -356,6 +356,7 @@ const SHOTS = [
 - 没有 GPU 的机器（CI、云主机）：`bin/vh frames`、`render`、`determinism`、`textcheck` 都加 `--soft-gl`，用软件渲染 WebGL。没有 WebGL 时 `ready` 会这样说。
 - 镜头的 `cam: [z0, z1, …]` 推到 1 以上时，3D 跟着 2D 一起放大，可它是按片子分辨率渲好的一张图，会比矢量画的 2D 软一些。要推近又要清楚，就用 `three.cam` 移 3D 自己的机位。
 - 重 3D 的长片少开几个 worker：几个浏览器同时渲重帧会卡死 GPU（`bin/vh render --workers 2`，卡住的那段 `--workers 1` 续渲）。
+- 4K 里按像素算的量：这一层 `setPixelRatio(1)`，画布就是物理像素（`--dpr 2` 时 3840 宽），所以 `gl_PointSize`、线宽这类物理像素量到 4K 只剩一半，要乘 `renderer.domElement.width / W`（1920 宽的片子就是 `/ 1920`）。已经归一化的量（按 960 × 540 这类画面单位算的宽度）本来就跟着分辨率走，再乘就宽一倍；`PointsMaterial` 开着 `sizeAttenuation` 时 three 已按画布高度算，也不用乘。一支片子两种错都犯了：星点小一半、光束宽一倍，都只在 4K 出现。所以出 4K 前先抽几帧 `bin/vh frames <项目> --at 4.9 --dpr 2`，出片后跑 `bin/vh check <4K> --against <1080p>`。
 - 后期（泛光、景深）不在这一层里，要的话见下面的"自己写合成"。
 
 旧项目要用 Three.js 层：复制 `src/07-three.js`，在 `film.html` 的 `<head>` 里加 import map（`"three"` 指向 `./three/build/three.module.js`，`"three/addons/"` 指向 `./three/addons/`），`06-time-map.js` 之后加 `07-three.js` 的 script 标签；`00-core.js` 合入 `FILM.three` 和 `buildShots()` 里的 `three`；`90-main.js` 合入 `boot()` 里的 `loadThree()`、`build()` 里的 `checkThree()` 和 `drawShot()` 里的 `drawThree()`；再把 `engines/canvas-film/three/` 整个复制成项目的 `three/`。`bin/vh doctor <项目>` 会列出还差哪些。
