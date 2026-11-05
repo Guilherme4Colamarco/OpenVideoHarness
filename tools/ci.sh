@@ -6461,7 +6461,7 @@ PY
      && [ -s "$t/fe/edit-S03-t0000.200.png" ] && printf '%s' "$c" | grep -q 'shots from: edit.json' && [ "$e" = "6 ['S01', 'S02'] []" ] \
      && printf '%s' "$d" | python3 -c 'import json, sys; d = json.load(sys.stdin); sys.exit(0 if [s["id"] for s in d["shots"]] == ["S01", "S02", "S03", "S04", "S05", "S06"] and "edit list" in d["shots_from"] else 1)'
   then ok "determinism holds run by run; frames --entry; storyboard, thumbs and the review desk find the entries with no shots.json"
-  else bad "edit list's frames and shots (exit $rc:$rc2:$rc3:$rc4, desk: $e): $(printf '%s' "$a$b$c" | tail -c 700) | $(printf '%s' "$d" | tail -c 200)"; fi
+  else bad "edit list's frames and shots (exit $rc:$rc2:$rc3:$rc4, desk: $e): determinism: $(printf '%s' "$a" | tail -c 300) | frames: $(printf '%s' "$b" | tail -c 200) | storyboard: $(printf '%s' "$c" | tail -c 200) | thumbs: $(printf '%s' "$d" | tail -c 200)"; fi
   # check fails a film with a slate left, and says which entry each finding is in; deliver refuses it; versions compare
   # says what changed entry by entry
   a=$(vh check "$p/out/film.mp4" 2>&1); rc=$?

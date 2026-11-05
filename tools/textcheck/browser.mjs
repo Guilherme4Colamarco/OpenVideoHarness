@@ -145,6 +145,35 @@ export async function launch(exe, flags = []) {
   return { send, once, on, close, version: version.product };
 }
 
+// launchTab(exe, flags, domains) → { browser, sessionId }: a browser with a new tab, those domains enabled on it.
+// Full Chrome on macOS can stop answering for good as its tab comes up: its main thread blocks in RunningBoard
+// (rbs_acquire_appnap_assertion). On an M-series Mac in 2026-11: 6 of 278 launches when two start together, 1 of 518 one
+// at a time, none of 3550 for chrome-headless-shell. Then not even a browser-wide command answers, and only a new browser
+// helps. Without a limit here a tool with no watchdog of its own (render's workers) would wait for ever.
+const TAB_TRIES = 3;
+class NoAnswer extends Error {}
+export async function launchTab(exe, flags, domains) {
+  const TAB_ANSWER_S = Math.max(30, Number(process.env.OVH_PAGE_TIMEOUT) || 0);   // a slow machine's way to give it longer, never less
+  for (let n = 1; ; n++) {
+    const browser = await launch(exe, flags);
+    const answer = (method, params, session) => {
+      let timer;
+      return Promise.race([browser.send(method, params, session), new Promise((_, no) => { timer = setTimeout(() => no(new NoAnswer(`${method} had no answer within ${TAB_ANSWER_S} s`)), TAB_ANSWER_S * 1000); })]).finally(() => clearTimeout(timer));
+    };
+    try {
+      const { targetId } = await answer("Target.createTarget", { url: "about:blank" });
+      const { sessionId } = await answer("Target.attachToTarget", { targetId, flatten: true });
+      for (const d of domains) await answer(`${d}.enable`, {}, sessionId);
+      return { browser, sessionId };
+    } catch (e) {
+      await browser.close();
+      if (!(e instanceof NoAnswer)) throw e;
+      if (n === TAB_TRIES) throw new Error(`the browser stopped answering ${n} times in a row as its tab came up (${e.message})`);
+      console.error(`the browser stopped answering as its tab came up (${e.message}): starting another`);
+    }
+  }
+}
+
 const TYPES = { ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
   ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".avif": "image/avif",
   ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf", ".wav": "audio/wav", ".mp3": "audio/mpeg",

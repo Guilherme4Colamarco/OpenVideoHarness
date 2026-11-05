@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { launch } from "../textcheck/browser.mjs";
+import { launchTab } from "../textcheck/browser.mjs";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const HARNESS = path.resolve(HERE, "..", "..");
@@ -176,19 +176,16 @@ export async function openFilm(target, o = {}) {
   flags.push("--font-render-hinting=none");   // as HyperFrames renders: glyph edges otherwise differ from its frames
   // after 3 GPU process crashes Chrome goes on without WebGL, with no event to say so; it takes both to keep it
   flags.push("--disable-gpu-process-crash-limit", "--disable-domain-blocking-for-3d-apis");
-  let browser;
-  try { browser = await launch(o.browser, flags); } catch (e) { await server.close(); throw new HostError(`could not start ${o.browser}: ${e.message}`); }
+  let browser, s;
+  try { ({ browser, sessionId: s } = await launchTab(o.browser, flags, ["Page", "Runtime", "Network"])); } catch (e) { await server.close(); throw new HostError(`could not start ${o.browser}: ${e.message}`); }
   const closeAll = async () => { try { await browser.close(); } catch { /* gone */ } await server.close(); };
   try {
-    const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
-    const { sessionId: s } = await browser.send("Target.attachToTarget", { targetId, flatten: true });
     const problems = [], urls = new Map();
     browser.on("Runtime.exceptionThrown", (p) => problems.push("error: " + ((p.exceptionDetails.exception && p.exceptionDetails.exception.description) || p.exceptionDetails.text)));
     browser.on("Runtime.consoleAPICalled", (p) => { if (p.type === "error") problems.push("console.error: " + p.args.map((a) => a.value ?? a.description ?? "").join(" ")); });
     browser.on("Network.requestWillBeSent", (p) => urls.set(p.requestId, p.request.url));
     browser.on("Network.loadingFailed", (p) => { if (!p.canceled) problems.push(`failed to load ${(urls.get(p.requestId) || "?").replace(server.url, "")}: ${p.errorText}`); });
     browser.on("Network.responseReceived", (p) => { if (p.response.status >= 400 && !/\/favicon\.ico$/.test(p.response.url)) problems.push(`failed to load ${p.response.url.replace(server.url, "")}: HTTP ${p.response.status}`); });
-    for (const d of ["Page", "Runtime", "Network"]) await browser.send(`${d}.enable`, {}, s);
     const metrics = (w, h) => browser.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: o.dpr || 1, mobile: false }, s);
     await metrics(width, height);
     await browser.send("Emulation.setTimezoneOverride", { timezoneId: "UTC" }, s);   // local time reads the same on every machine
@@ -213,9 +210,9 @@ export async function openFilm(target, o = {}) {
     const load = async () => {
       const loaded = browser.once("Page.loadEventFired", s);
       loaded.catch(() => { /* a browser that dies first fails it; the race below reports that */ });
-      await browser.send("Page.navigate", { url: server.url + pageUrl.split("/").map(encodeURIComponent).join("/") }, s);
+      const sent = browser.send("Page.navigate", { url: server.url + pageUrl.split("/").map(encodeURIComponent).join("/") }, s);
       let timer;
-      await Promise.race([loaded, new Promise((_, no) => { timer = setTimeout(() => no(new HostError("the page did not load within 60 s")), 60000); })]).finally(() => clearTimeout(timer));
+      await Promise.race([Promise.all([sent, loaded]), new Promise((_, no) => { timer = setTimeout(() => no(new HostError("the page did not load within 60 s")), 60000); })]).finally(() => clearTimeout(timer));
       const found = await bounded(ev(`new Promise((ok) => { const t0 = Date.now(); const look = () => {
         if (window.film && typeof window.film.frame === "function") return ok(window.film.__adapter || "film");
         if (window.__vh && typeof window.__vh.draw === "function") return ok("__vh");

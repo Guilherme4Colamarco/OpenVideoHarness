@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**A browser that stops answering as its tab comes up is replaced, not waited for**
+- Why: full Chrome on macOS sometimes stops answering for good as its tab comes up, its main thread blocked in RunningBoard (`rbs_acquire_appnap_assertion`). On an M-series Mac: 6 of 278 launches when two start together, 1 of 518 one at a time, none of 3550 for chrome-headless-shell, which the tools prefer when it is there. A tool with no watchdog of its own, such as `render`'s workers, would have waited for ever.
+- `tools/textcheck/browser.mjs`, `launchTab`: the tab's first commands have 30 s each (longer with `OVH_PAGE_TIMEOUT`); no answer, and the browser is killed and another started, 3 tries, then an error. `tools/film/host.mjs` and `tools/textcheck/textcheck.mjs` open their tab through it, and the page's 60 s to load now also covers `Page.navigate`.
+- `tools/ci.sh`: the edit list's check gives each command's own tail, so a failing `determinism` is no longer cut off by the output after it.
+
 **A lost GPU no longer leaves a blank frame: the page is loaded again and the frame drawn again**
 - Why: `film shots` failed now and then on macOS CI with two captures 1.56 dB apart, and one of them was blank. With two browsers on a GitHub macOS runner the GPU process died in 1-2% of first frames (a Metal GPU hang, where the log names a cause). That empties every canvas and no error says so, and `frames`, `storyboard` and `render` all capture this way. Drawing again on the same page is not enough: a canvas a page keeps a texture in is empty too, as canvas-film's `texture()` and grain would be (18 of 18 stayed blank).
 - `tools/film/host.mjs`: the page's contexts are counted before its own scripts, in one count for a page and its frames. After each capture (`frame`, `cover`), and after a frame that failed, a page that lost one is loaded again at the size it first loaded at and the picture taken again, at most 3 times, then an error. A page's own loss does not count: a WebGL context it ended itself (`WEBGL_lose_context`, as three's `forceContextLoss()` when a film drops a 3D world), the oldest one the browser ends as a new one goes past its limit, or a 2D canvas too large to exist. `setParams` carries over, what a page says on every load is said once, and what it said on the way to the loss goes to stderr, not to the film's problems.
