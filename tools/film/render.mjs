@@ -193,7 +193,7 @@ const glyphCheck = async (film) => {
   finally { clearTimeout(timer); }
 };
 let first;
-try { first = editRoot ? await openEdit(editRoot, { ...o, doc, span: spanK, prelude: [HOOK], onRetire: glyphCheck }) : await openFilm(target, { ...o, runtime: "auto", prelude: [HOOK] }); } catch (e) { die(e.message); }
+try { first = editRoot ? await openEdit(editRoot, { ...o, doc, span: spanK, prelude: [HOOK], onRetire: glyphCheck, beforeReload: glyphCheck }) : await openFilm(target, { ...o, runtime: "auto", prelude: [HOOK], beforeReload: glyphCheck }); } catch (e) { die(e.message); }
 if (editRoot) editFilms.push(first);
 if (first.kind === "hyperframes" && !force) {
   await first.close();
@@ -643,8 +643,8 @@ async function worker(w) {
   let film = w === 0 ? first : null;
   const encoding = [];
   try {
-    if (!film && editRoot) { film = new EditFilm(editRoot, doc, { ...o, prelude: [HOOK], onRetire: glyphCheck }); editFilms.push(film); }
-    if (!film) { film = await openFilm(target, { ...o, runtime: "auto", prelude: [HOOK] }); if (alpha) await clearBackground(film); }
+    if (!film && editRoot) { film = new EditFilm(editRoot, doc, { ...o, prelude: [HOOK], onRetire: glyphCheck, beforeReload: glyphCheck }); editFilms.push(film); }
+    if (!film) { film = await openFilm(target, { ...o, runtime: "auto", prelude: [HOOK], beforeReload: glyphCheck }); if (alpha) await clearBackground(film); }
     for (let i; !failed && (i = nextChunk(film)) !== null;) encoding.push((await (editRoot && runOf[i].draw === "clip" ? clipChunk(i) : chunk(film, i))).encoded);
   } catch (e) { failWith(e.message); }
   await Promise.all(encoding);

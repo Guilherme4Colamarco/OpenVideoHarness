@@ -6179,6 +6179,12 @@ print("canvas-film readcheck: export/check, custom outputs, original Pace (in th
 PYREAD
   ); rc=$?
   if [ $rc = 0 ]; then ok "$a"; else bad "readcheck export/output regression: $a"; fi
+  a=$(node "$ROOT/tools/test_film_gpu_loss.mjs" 2>&1); rc=$?
+  case $rc in
+    0) ok "a lost GPU (the GPU process crashed on demand, 5 times in a browser): the page is loaded again, its cached canvas with it; a page ending its own WebGL contexts, too many contexts and a canvas too large are left alone" ;;
+    3) no_chrome "a lost GPU" ;;
+    *) bad "a lost GPU (exit $rc): $(printf '%s' "$a" | grep -v '^ok ' | tail -c 800)" ;;
+  esac
   if command -v uv >/dev/null; then
     if python3 "$ROOT/tools/test_film_shots.py"; then ok "film shots: resolved times, real frames, source precedence and errors"; else bad "film shots"; fi
   else skip "film shots" "needs uv (Pillow for storyboard/rhythm)"; fi

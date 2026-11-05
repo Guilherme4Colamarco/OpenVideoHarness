@@ -99,7 +99,7 @@ for (const t of times) {
 }
 await collectDom(film, true);   // a HyperFrames composition: every clip's text, shown or not
 for (const c of (await film.list("covers").catch(() => null)) || []) {   // covers draw titles of their own
-  try { await timely(film.cover(c.id, c.t), `cover ${c.id}`); } catch (e) { if (e.stuck) await finish(2, e.message); problems++; console.log(`  cover ${c.id}: ${e.message}`); }
+  try { await timely(film.cover(c.id, c.t, { capture: false }), `cover ${c.id}`); } catch (e) { if (e.stuck) await finish(2, e.message); problems++; console.log(`  cover ${c.id}: ${e.message}`); }
   for (const r of Array.isArray(c.ratios) ? c.ratios : []) {   // and each ratio it lays out a title for
     try { await timely(film.cover(c.id, c.t, { ratio: r, capture: false }), `cover ${c.id} ${r}`); } catch (e) { if (e.stuck) await finish(2, e.message); problems++; console.log(`  cover ${c.id} ${r}: ${e.message}`); }
   }

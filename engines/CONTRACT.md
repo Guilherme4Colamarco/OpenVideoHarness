@@ -60,6 +60,8 @@ window.film = {
 
 6. **字形**：页面要的字体里缺某个字时，浏览器不报错，换一个字体画它，哪个字体都没有就画成空的"缺字"字形。`bin/vh fonts check` 在页面脚本之前挂上 canvas 的 `fillText` / `strokeText`，按时间抽帧（再加上 `texts` 里每段字的中间），记下画了哪些字、用的什么字体，DOM 里的字按算出的样式记；然后问浏览器每个字实际由哪个平台字体画（DevTools 的 `CSS.getPlatformFontsForNode`），不是字体栈里第一个字体（`@font-face` 的 `local()`；`url()` 或 FontFace API 加的字体，按这个字体族单独画出来是哪个字体认；或者装在本机的那个字体族）画的算换了字体；画出来和一个哪个字体都没有的字（U+10FFFD）一模一样的，算缺字。有一个就退出码 1。落到同一个栈里后面写明的字体的（`"Helvetica Neue", "PingFang SC"` 里的中文），是栈本来的意思，只说一声，`--strict` 才算失败。`bin/vh render` 每个 worker 出完自己那段也查一遍画过的字，有问题打出来，不判失败。工具在 `tools/film/glyphs.mjs`、`fonts.mjs`。
 
+7. **GPU 丢失**：GPU 进程崩溃时，页面上所有 canvas 都被清空，页面留着当纹理用的那些也一样，而页面只收到 `contextlost` / `webglcontextlost` 事件，没有报错。宿主在页面脚本之前数这些事件，每次截图后查一遍；丢过就重新载入页面，再画这一帧，连丢 4 次就报错退出。所以一次渲染里页面可能被载入不止一次，硬规则 1 保证画出来的还是同一张。页面自己结束的 context 不算（`WEBGL_lose_context`，比如 three 的 `forceContextLoss()`），WebGL context 太多时浏览器结束最旧的那个也不算。Web Worker 里的 `OffscreenCanvas`、WebGPU、其他来源的 iframe 数不到。
+
 还没做的：页面用 `<video>` 取画面时，OpenFilm 的宿主会把 seek 落到那一帧里面、等新的一帧上屏再截图，这个宿主还没有；它的服务也不答 HTTP Range 请求。
 
 ## 在序列里
