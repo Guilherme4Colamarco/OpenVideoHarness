@@ -4099,7 +4099,7 @@ ok = r["scout"]["file"] == "research/scout.jsonl" and (r["scout"]["records"], r[
 ok = ok and r["hot"]["days"] == 1 and r["hot"]["first"] == r["hot"]["last"] and r["refs"] == {"file": "research/refs.json", "records": 4, "error": None}
 sys.exit(0 if ok else 1)
 PY
-  then case "$rc:$rc2|$b|$c|$d" in "1:2|"*"research: 1 scout record (1 looked at, 1 your own) · hot lists on 1 day (the last "*"· 4 references (bin/vh scout, bin/vh ref)"*"|"*"! no follower count, blocked: bilibili /x/relation/stat: code -352"*"✓ bili-BV1Cd4y1F7Gh"*"|"*"references/fetch.sh"*)
+  then case "$rc:$rc2|$b|$c|$d" in "1:2|"*"research: 1 scout record (1 looked at, 1 your own) · hot lists on 1 day (the last "*"· 4 references (bin/vh scout, bin/vh ref, bin/vh web)"*"|"*"! no follower count, blocked: bilibili /x/relation/stat: code -352"*"✓ bili-BV1Cd4y1F7Gh"*"|"*"references/fetch.sh"*)
       ok "status --json and its lines: the project's research/ (scout records, hot-list days, references); ref add keeps a reference whose follower count is blocked and says so (exit 1); ref fetch is kept as a name" ;;
     *) bad "status's research, or ref add with its follower count blocked (exits $rc:$rc2, want 1:2): $(printf '%s' "$b$c$d" | tail -c 700)" ;; esac
   else bad "status --json, its research: $(printf '%s' "$a" | tail -c 500)"; fi
