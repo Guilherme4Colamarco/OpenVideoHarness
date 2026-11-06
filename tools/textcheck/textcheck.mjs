@@ -62,7 +62,7 @@
 // window.film.frame nor window.__vh.draw, the page did not load, no browser, or no canvas text measured at all): not a pass.
 import fs from "node:fs";
 import path from "node:path";
-import { BrowserGone, launch, serve } from "./browser.mjs";
+import { BrowserGone, launchTab, serve } from "./browser.mjs";
 import "../film/activity.mjs";   // bin/vh exec's into this: the run's end line in the project's activity log
 
 process.stdout.on("error", (e) => { if (e.code !== "EPIPE") throw e; });   // a reader that stops early (| head) does not leave Chrome behind
@@ -142,13 +142,10 @@ const watchdog = setTimeout(async () => { console.error(`textcheck: stopped afte
 watchdog.unref();
 try {
   server = await serve(dir);
-  try { browser = await launch(browserPath, flags); } catch (e) { stop(`could not start ${browserPath}: ${e.message}`); }
-  const { targetId } = await browser.send("Target.createTarget", { url: "about:blank" });
-  const { sessionId: s } = await browser.send("Target.attachToTarget", { targetId, flatten: true });
+  let s;
+  try { ({ browser, sessionId: s } = await launchTab(browserPath, flags, ["Page", "Runtime"])); } catch (e) { stop(`could not start ${browserPath}: ${e.message}`); }
   const loadErrors = [];
   browser.on("Runtime.exceptionThrown", (p) => loadErrors.push((p.exceptionDetails.exception && p.exceptionDetails.exception.description) || p.exceptionDetails.text));
-  await browser.send("Page.enable", {}, s);
-  await browser.send("Runtime.enable", {}, s);
   await browser.send("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile: false }, s);
   await browser.send("Page.addScriptToEvaluateOnNewDocument", { source: fs.readFileSync(new URL("./page.js", import.meta.url), "utf8") }, s);
   const rawEv = async (expression) => {

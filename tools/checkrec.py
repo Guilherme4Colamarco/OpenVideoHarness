@@ -19,7 +19,8 @@ size, mtime_ns  the video file's bytes and modification time (nanoseconds) when 
                 ran). Nothing is hashed. null when the file cannot be read
 A finding: {"kind", "severity", "message", "t", "t1", "frame", "frames", "evidence", "confirmed", "remedies"?}.
   kind      check.spec, check.gate, check.black, check.freeze, check.silence, check.iso (an isolated frame), check.periodic,
-            check.static, check.cut (a hard cut from dark to bright), check.blind (frames that move too much to judge),
+            check.static, check.cut (a hard cut from dark to bright), check.fade (a fade still under way at the last frame),
+            check.blind (frames that move too much to judge),
             check.subtitles, check.colour, check.loudness (the film's sound against what it was mixed to), check.packaging,
             check.scale, check.confirmed (an entry of confirmed.json unused, lapsed or not taken), check.slate (an edit
             list's entry with no source yet, left in the film), check.edit (an image the film was drawn from that changed
@@ -169,6 +170,10 @@ def iso_findings(iso):
     for t, before, after in iso.get("flashes") or []:
         out.append(finding("check.cut", "warn", f"a hard cut from dark to bright at {t:.2f} s (mean {before:.0f} → {after:.0f}): it reads as a flash",
                            t=t, frame=round(t * fps) if fps else None, evidence={"before": round(before, 1), "after": round(after, 1)}))
+    if iso.get("fade_tail"):
+        t, before, after = iso["fade_tail"]
+        out.append(finding("check.fade", "warn", f"still fading at the last frame (mean {before:.0f} → {after:.0f}, not black): a fade meant to reach black stops short",
+                           t=t, frame=round(t * fps) if fps else None, evidence={"before": round(before, 1), "after": round(after, 1)}))
     for c in iso.get("confirmed_notes") or []:
         if c.get("state") in ("lapsed", "unused"):
             out.append(finding("check.confirmed", "warn" if c["state"] == "unused" else "info",
@@ -214,6 +219,8 @@ def pack_findings(pk):
     for f in pk.get("fields") or []:
         if f.get("over"):
             out.append(finding("check.packaging", "warn", f"PACKAGING.md · {f['heading']}: {f['field']} {f['count']} {f['unit']}, over the limit of {f['limit']} ({f.get('sure')})", evidence=f))
+    for n in pk.get("notes") or []:
+        out.append(finding("check.packaging", "warn", f"PACKAGING.md · {n}"))
     return out
 
 

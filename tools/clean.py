@@ -21,14 +21,20 @@ Without --yes it only lists (a dry run; --dry-run says so, and wins over --yes).
             a lyric video's audio/song.mp3 stays when its page names it, as it does when it plays it.
             Only once a film is found
 The film: video files in out/final/ (not in a covers or 封面 folder inside it), else out/final*.<video> directly in out/,
-media/*.<video>, what --final names (an existing video file, relative to the project or to here), and every copy bin/vh
-deliver wrote with the master it came from (named by its record, <copy>.deliver.json, which stays too; a file that is no
-longer the size or time recorded is said, and kept all the same). Covers and
+media/*.<video>, what --final names (an existing video file, relative to the project or to here), every video under out/
+the project names as a deliverable (BRIEF.md's Deliverables line and anywhere in PACKAGING.md: a path from the project, or
+a name directly in out/ or out/final/; like --final, naming one is a film found, so the other renders and old takes can
+then go), and every copy bin/vh deliver wrote with the master it came from (named by its record,
+<copy>.deliver.json, which stays too; a file that is no longer the size or time recorded is said, and kept all the same). Covers and
 out/publish/ stay, but do not count as the film. A project with no film found keeps its videos and its sound: name the
 film with --final. --keep protects a path, also inside a folder that would otherwise go (the folder is then cleared item
 by item around it).
 What stays besides: out/review/, every other file in out/ that is not a video, timelines, scripts, src/,
-assets/, lookdev/, tools/, the markdown, and any folder below the project that is a project of its own (has a BRIEF.md).
+assets/, lookdev/, tools/, the markdown, any folder below the project that is a project of its own (has a BRIEF.md), and
+whatever the asset ledger has on record (bin/vh assets; a file moved by hand fails bin/vh assets check: run it after).
+A folder directly in out/ that this tool has no word for (out/ch01, out/samples: one the project made) is treated like
+the rest of out/, its videos go and its other files stay, and it is listed with what would go and what would stay. So
+run it without --yes first, and read the list.
 Everything goes to the Trash (macOS: /usr/bin/trash where there is one, which also handles other disks and Put Back, else
 ~/.Trash; Linux: the freedesktop Trash, refused for an item on another disk); --delete deletes the "rebuilt" kind outright
 (the tools make it again). A video is never deleted outright: a mistaken render can come back from the Trash. Refused:
@@ -135,6 +141,63 @@ def find_film(root, finals):
     if (root / "media").is_dir():
         found += [p.relative_to(root) for p in (root / "media").iterdir() if p.is_file() and p.suffix.lower() in VIDEO]
     return found
+
+
+def named_deliverables(root):
+    """The videos under out/ the project itself names as what it delivers: on BRIEF.md's Deliverables line, anywhere in
+    PACKAGING.md (not its comments), as a path from the project or a name directly in out/ or out/final/. Only under out/:
+    clean never touches a video elsewhere, and a source a page mentions (footage/raw.mp4) is no film found."""
+    said = []
+    try:
+        said += re.findall(r"^\s*[-*]?\s*Deliverables\s*[:：](.*)$", (root / "BRIEF.md").read_text(encoding="utf-8", errors="ignore"), flags=re.M)
+    except OSError:
+        pass
+    try:
+        said.append(re.sub(r"<!--.*?-->", "", (root / "PACKAGING.md").read_text(encoding="utf-8", errors="ignore"), flags=re.S))
+    except OSError:
+        pass
+    got = []
+    for name in re.findall(r"[^\s`'\"(){}（）,，、|:：]+\.(?:mp4|mov|webm|mkv|m4v|avi)\b", "\n".join(said), flags=re.I):
+        for base in (root, root / "out", root / "out" / "final"):
+            q = os.path.normpath(base / name)
+            rel = Path(os.path.relpath(q, root))
+            if Path(q).is_file() and low(rel)[0] == "out":
+                if rel not in got: got.append(rel)
+                break
+    return got
+
+
+def on_ledger(root):
+    """What the asset ledger has on record, relative to the project: a record's file is not an intermediate, and clearing
+    it fails bin/vh assets check. Nothing when the ledger cannot be read (bin/vh assets check says so)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "assets"))
+    try:
+        import ledger
+        _, ents, _ = ledger.entries(root, [])
+    except Exception:
+        return []
+    got = []
+    for e in ents:
+        r = e["record"]
+        path = r.get("path")
+        if "removed" not in r and isinstance(path, str) and not os.path.isabs(path):
+            p = Path(path.rstrip("/"))
+            if p.parts and ".." not in p.parts:   # not "." or "./": it would keep the whole project
+                got.append(p)
+    return got
+
+
+def own_folders(root, items, sizes):
+    """Folders directly in out/ this tool has no word for, the project's own: [(folder, its size, what of it would go)]."""
+    out = root / "out"
+    if not out.is_dir():
+        return []
+    known = {"frames", "check", "proxy", "cache", "review", "publish", "versions", "final"} | COVERS
+    rows = []
+    for q in sorted(out.iterdir()):
+        if q.is_dir() and not q.is_symlink() and q.name.casefold() not in known and not q.name.endswith((".parts", ".patch")) and not (q / "BRIEF.md").exists():
+            rows.append((q, size(q), sum(sizes[p] for _, p in items if q in p.parents)))
+    return rows
 
 
 def deliveries(root):
@@ -354,16 +417,18 @@ def main():
         print("clean: something is writing in the project: " + ", ".join(f"{p} (pid {pid})" for p, pid in locks) + "; wait for it", file=sys.stderr)
         sys.exit(2)
     found = find_film(root, finals)
+    named = named_deliverables(root)
     sent = deliveries(root)
-    seen = set()   # the film: what was found, and every delivered copy and its master, each once (case-blind, as the disk)
-    film = [f for f in found + [f for _, fs, _ in sent for f in fs] if not (low(f) in seen or seen.add(low(f)))]
+    seen = set()   # the film: what was found or named, and every delivered copy and its master, each once (case-blind, as the disk)
+    film = [f for f in found + named + [f for _, fs, _ in sent for f in fs] if not (low(f) in seen or seen.add(low(f)))]
     # out/check goes as rebuilt (check frames), a video in it does not: the check tools write none, so it is someone's
     out = root / "out"
     chk = next((q for q in out.iterdir() if q.name.casefold() == "check" and q.is_dir() and not q.is_symlink()), None) if out.is_dir() else None
     keep_vid = [(d / f).relative_to(root) for d, _, _, fs in walk(chk) for f in fs if Path(f).suffix.lower() in VIDEO] if chk else []
     keep_rec = sorted((d / f).relative_to(root) for d, _, _, fs in walk(chk) for f in fs if f.endswith(".check.json")) if chk else []   # what the film was checked for
     own = subprojects(root)
-    items = candidates(root, film, keeps + film + [r for r, _, _ in sent] + keep_vid + keep_rec + own)
+    ledgered = on_ledger(root)
+    items = candidates(root, film, keeps + film + [r for r, _, _ in sent] + keep_vid + keep_rec + own + ledgered)
     if a.keep_versions < 0:
         print("clean: --keep-versions N: a number ≥ 0", file=sys.stderr); sys.exit(2)
     vgo, vnote = versions_to_go(root, a.keep_versions, keeps + film + [r for r, _, _ in sent])
@@ -380,6 +445,11 @@ def main():
         print(f"  delivered (bin/vh deliver's record {r} stays, and what it names): " + (", ".join(str(f) for f in fs) or "nothing left in the project"))
         for n in notes:
             print(f"    ! {n}")
+    if named:
+        print("  named as deliverables (BRIEF.md's Deliverables, PACKAGING.md): " + ", ".join(str(f) for f in named[:6]) + (" …" if len(named) > 6 else ""))
+    in_out = [k for k in ledgered if low(k)[0] == "out"]
+    if in_out:
+        print("  on the asset ledger, stays (better under assets/): " + ", ".join(str(f) for f in in_out[:6]) + (" …" if len(in_out) > 6 else ""))
     if own:
         print("  projects of their own inside, kept whole: " + ", ".join(str(f) for f in own[:6]) + (" …" if len(own) > 6 else ""))
     if keep_vid:
@@ -401,6 +471,15 @@ def main():
             print(f"    {human(sizes[p]):>9}  {p.relative_to(root)}{'/' if p.is_dir() and not p.is_symlink() else ''}")
         if len(xs) > 25:
             print(f"    … {len(xs) - 25} more")
+        if kind == "renders" and not doing:
+            print("    a deliverable among these? name it on BRIEF.md's Deliverables line or in PACKAGING.md, or --final <file>")
+    rows = own_folders(root, items, sizes)
+    if rows:
+        print("  in out/ and not known to clean, the project's own: look before clearing (their videos go as renders, the other files stay)")
+        for q, n, gone in sorted(rows, key=lambda x: -x[1])[:25]:
+            print(f"    {human(n):>9}  {q.relative_to(root)}/  {human(gone)} would go, {human(n - gone)} would stay")
+        if len(rows) > 25:
+            print(f"    … {len(rows) - 25} more")
     if not doing:
         sys.exit(0)
     failed, trashed, deleted, vgone = 0, 0, 0, []
@@ -433,6 +512,8 @@ def main():
               + (", the Trash's too once it is emptied" if trashed else "") + " (hours; sooner when space runs short)")
     elif n:
         print(f"  and Time Machine's {n} local snapshot(s) can still hold it on the disk after that, until macOS drops them (hours; sooner when space runs short)")
+    if (root / "assets" / "ledger.json").is_file() and (trashed or deleted):
+        print(f"  then bin/vh assets check {a.project}: what the ledger names has to be there still")
     sys.exit(1 if failed else 0)
 
 

@@ -2,6 +2,106 @@
 
 ## Unreleased
 
+**A browser that stops answering as its tab comes up is replaced, not waited for**
+- Why: full Chrome on macOS sometimes stops answering for good as its tab comes up, its main thread blocked in RunningBoard (`rbs_acquire_appnap_assertion`). On an M-series Mac: 6 of 278 launches when two start together, 1 of 518 one at a time, none of 3550 for chrome-headless-shell, which the tools prefer when it is there. A tool with no watchdog of its own, such as `render`'s workers, would have waited for ever.
+- `tools/textcheck/browser.mjs`, `launchTab`: the tab's first commands have 30 s each (longer with `OVH_PAGE_TIMEOUT`); no answer, and the browser is killed and another started, 3 tries, then an error. `tools/film/host.mjs` and `tools/textcheck/textcheck.mjs` open their tab through it, and the page's 60 s to load now also covers `Page.navigate`.
+- `tools/ci.sh`: the edit list's check gives each command's own tail, so a failing `determinism` is no longer cut off by the output after it.
+
+**A lost GPU no longer leaves a blank frame: the page is loaded again and the frame drawn again**
+- Why: `film shots` failed now and then on macOS CI with two captures 1.56 dB apart, and one of them was blank. With two browsers on a GitHub macOS runner the GPU process died in 1-2% of first frames (a Metal GPU hang, where the log names a cause). That empties every canvas and no error says so, and `frames`, `storyboard` and `render` all capture this way. Drawing again on the same page is not enough: a canvas a page keeps a texture in is empty too, as canvas-film's `texture()` and grain would be (18 of 18 stayed blank).
+- `tools/film/host.mjs`: the page's contexts are counted before its own scripts, in one count for a page and its frames. After each capture (`frame`, `cover`), and after a frame that failed, a page that lost one is loaded again at the size it first loaded at and the picture taken again, at most 3 times, then an error. A page's own loss does not count: a WebGL context it ended itself (`WEBGL_lose_context`, as three's `forceContextLoss()` when a film drops a 3D world), the oldest one the browser ends as a new one goes past its limit, or a 2D canvas too large to exist. `setParams` carries over, what a page says on every load is said once, and what it said on the way to the loss goes to stderr, not to the film's problems.
+- Two flags, since after 3 GPU process crashes Chrome goes on without WebGL and with no event: `--disable-gpu-process-crash-limit` and `--disable-domain-blocking-for-3d-apis`. It takes both.
+- `render` reads its glyph notes before the page goes (`beforeReload`); `fonts check` draws covers with no capture, so they never reload. `engines/CONTRACT.md`: item 7 of 宿主做什么. Not seen: a Web Worker's `OffscreenCanvas`, WebGPU, a frame from another origin.
+- `tools/test_film_gpu_loss.mjs`, in `film_engine_checks`: a real loss on demand (`Browser.crashGpuProcess`), 5 in one browser, in both software and this machine's GL, and each case above.
+- On that runner with two browsers: the old host 18 blank in 934 captures, this one 0 in 2684 with 26 reloads; the failing test 7 failures in 367 runs before, 0 in 189 after (both before the page's own losses were told apart). On a Mac with a real GPU: no loss in 809 captures. A 33-minute film that drops 3D worlds with `forceContextLoss()`: no reload, and 51 frames byte for byte what main draws. The GPU crashed 6 times between its frames: 5 frames the same bytes, one 104.9 dB off, no error.
+
+**canvas-film docs: pixel-sized things in the 3D layer at 4K, and text under the size floor**
+- Why: one film made two opposite mistakes in its 3D layer, stars half the size and a beam twice as wide, both only at 4K. And text written small is drawn at the floor with no warning unless it says `texture: true`.
+- `engines/canvas-film/README.md`, the Three.js layer: the canvas is physical pixels, so `gl_PointSize` and line widths are multiplied by `renderer.domElement.width / W`, and quantities already in picture units are not. Sample a few frames at `--dpr 2` before the 4K, and run `bin/vh check <4K> --against <1080p>` after it.
+- The same file, 字: small navigation text a person has allowed needs `texture: true` too.
+
+**`bin/vh image gen --provider codex --ref` sends the picture**
+- Why: it printed "reference picture(s) go to OpenAI (through Codex)", but `codex_picture` had no such argument, so nothing went. A model told to edit failed with "requested the last 1 conversation images, but only 0 were available", and the tool said "codex made no picture".
+- `tools/assets/image.py`: each `--ref` goes with `codex exec -i`, in the order given, and the model is told to edit what is attached. They are copied under plain names first, because `-i` splits a path at its commas and only tells the model about what it cannot read; `-i` also comes after the prompt's `-`, which it would take for a picture. `--dry-run` says how many.
+- A corridor relit at night against its reference (codex-cli 0.164.0): no shift, edge correlation 0.51. The same corridor described without `--ref`: 0.07.
+
+**A recipe: edit one plate into several, then a time-lapse**
+- Why: a long film's opening needed something happening from the first frame without changing the narration, and this answered the user's verdict that it lacked anything to catch the eye.
+- `recipes/fx/edited-plate-lapse.md` (`battle-tested`): a plate edited into day and without an object, nearly in register; the light as a cross-fade between plates; the object as a layer that rises from behind something and is only ever moved, so the picture is not warped, with what that gives up; at full height the composite is the plate. No sketch or sample sheet: the point of it is a generated picture and its layers. The counts in the READMEs, the overview diagrams and the homepage go to 75.
+
+**PACKAGING: a hypothetical in the film is one in the copy too**
+- Why: on that film a title in the first person turned its opening what-if into something that happened to the author. It was caught by hand before publishing.
+- `templates/PACKAGING.md`: one line, under the facts.
+
+**canvas-film: renaming a chapter**
+- Why: on that film a rename touched seven places: three JSON files and four documents.
+- `engines/canvas-film/README.md`: the chapter table is the source; which readers follow it; settle on one copy on the voice's side; the documents by hand; `bin/vh cues --chapters` again; and what it costs when the bar shows every chapter's name.
+
+**Narration: sentence-to-sentence pitch and loudness**
+- Why: `--candidates` picks by block, not by sentence. On that film questions and short lines read up to 9.57 semitones and 3.65 dB off their neighbours, and the user heard it.
+- `tools/audio/README.md`, 整段合成: how it was measured, why the other candidates come first (44 sentences changed, 12 new requests), a gain per sentence, and where a splice goes when two sentences have no silence between them. `playbook/04` points there.
+
+**Reviewers read numbers on stopped frames; two false alarms and how to judge them**
+- Why: on that film a reviewer reported a chart's value as wrong from a frame mid-animation, and two checks raised an alarm that a look at the frames settled.
+- `playbook/02-verification.md`: layer 5 says to read a number after the animation stops. 已知的坑: `textcheck` on a sentence drawn in pieces or copies, and `check --against` on fine detail that resolves at 4K and blurs at 1080p, each with what to look at.
+
+**Scoring layer: two questions answered from the frames alone, before scoring**
+- Why: a fresh reviewer who has read the narration and storyboard fills in what a picture means. On that film the author and the reviewer both passed a symbol a viewer asked about at once, and the reviewer only mentioned a detail of the opening the user found empty. What this guards against is that; it adds no score and no pass mark, and the author still decides.
+- `templates/TASTE_CHECKLIST.md`: only the first 3 s, no narration: what happens on screen? Each main shot, no narration or captions: what is it saying? The ones with no answer are listed, and a shot that needs its narration is not thereby wrong.
+- `playbook/02-verification.md`, layer 5: the transcript comes last, and the opening strip is 3 s.
+
+**Gate ② shows the first 5 s and what is on every frame**
+- Why: on the same film the progress bar was settled at gate ③, two versions, 1080p and 4K rendered whole each time, about 2 hours in all; and the opening's lack of anything happening was only noticed on the whole film, when the narration was already locked.
+- `playbook/01-pipeline.md`, gate ②: a strip of the first 5 s (`bin/vh frames <project> --strip 0:5 --fps 6`), and the progress bar, caption style and fonts as they will really look.
+
+**Long films: an animation lexicon, samples, disk and time, the session version**
+- Why: a 33-minute film (2026-11) was made in five parallel sessions. It went well, and the docs only described subagents; one animation also ended up in four chapters because its storyboard's motif table treated a motif and an animation as one thing.
+- `playbook/01-pipeline.md`, 长片: an animation lexicon before splitting, with a cross-chapter contact sheet after the merge; a short sample for each way of working instead of one model chapter; that film's disk and time as an order of size, and `OVH_KEEP_VERSIONS`; a section on running sessions in parallel: a grey skeleton first, a file a chapter, shared documents changed by one lane, and an opinion that holds for more than one chapter goes into the shared library at once. `playbook/09` points at the lexicon.
+
+**`bin/vh clean`: what the project names as deliverables stays, and its own folders are listed; `assets add` warns about `out/`**
+- Why: a project's 1080p was listed as a render not the film, and a ledger path under `out/` turned `assets check` from pass to fail after a clean-up by hand (the same film, 2026-11; an earlier one too). Tried on a temporary project: once a film is found, every video under `out/` goes unless it is named, so `out/film-1080p.mp4` went to the Trash, and `out/ch01`-style folders lost their videos with the other files staying, unsaid.
+- A video under `out/` on BRIEF.md's Deliverables line or anywhere in PACKAGING.md (not its comments) counts as the film, and like `--final` that is a film found, so the other renders and old takes can then go. A source it mentions elsewhere (`footage/raw.mp4`) counts for nothing. Files on the asset ledger stay.
+- A folder directly in `out/` that clean has no word for is listed with what would go and what would stay; under the renders, a line says how to keep a deliverable; after clearing, it says to run `bin/vh assets check`.
+- `bin/vh assets add` warns when the path is under `out/`.
+
+**`tools/packcheck.py`: `AI for Science` is one tag, and the AI count is compared**
+- Why: on the same film it counted that tag as three, said nothing about a topic with a space, and nobody noticed the AI count written by hand had gone stale (19 against 22).
+- Tags split at commas and 、 only; a `#` after a space still starts a new one. A topic with a space is said for 抖音, 小红书 and 视频号, where it stops at the space (seen by the maintainer publishing; no official page).
+- 视频号's title gets a limit of 50, second-hand like 抖音's: three third-party publishing tools' notes, found in 2026-11. The "16" that was going around for its short title has no source and is not used. B站's "10 tags" has none either: it is said with a `!` as `unverified` and does not count as over. `playbook/10` has both.
+- The numbers on PACKAGING.md's `AI 生成内容` line against `bin/vh assets credits`, all the records or what the newest films used, only the kinds the line gives a number for: said when they match neither. These reminders are in `pack.json`'s `notes` and `bin/vh check`'s record.
+
+**`bin/vh assets credits`: text you can paste, one line a source, `--film`**
+- Why: on a 33-minute film (2026-11) its output was deduplicated by hand twice and rewritten once before it could go in a pinned comment. A sentence for the publisher sat in the text, one source had up to eight lines, and records the film never used were listed.
+- stdout is what viewers can read: the turn-on-the-declaration sentence goes to stderr (`aigc.declare` in `--json`, `aigc.public` the sentence that stays; `aigc.notice` still has both).
+- Records become one line only when no words a licence asks for are lost: the same words, punctuation aside; or, from one source (the same page, author and licence class, or made from one record: `derived_from`), one line's words inside the other's. The longer stays, or the original's when the other is made from it, and what was dropped is said on stderr. Another title, licence version or author stays apart: CC BY asks for the title and the version, so two wordings that are merely similar stay two lines for the person to read. `required` and `courtesy` items gain `ids` and `merged`.
+- `--film <video>`: only what that film used, read as `assets check --film` reads it, plus what those files came from. `used_by` could not do this: on that film every record had one, stale ones included. A data or other file stays, since a table or a paper can be used without the page loading it; what is left out is listed on stderr and in `left_out`. A picture or a sound baked into something with no record tying them (`derived_from`) is left out too, so the list is there to read: on a copy of that film's ledger it took out the unused pictures, and also the narration's takes, joined into one file that was not on record as made from them.
+
+**canvas-film docs: flashes shorter than a shot, and writing your own compositing pipeline**
+- Why: an intro needed both and neither was written down. A shot must be at least 0.2 s, and the Three.js layer has no post-processing.
+- `engines/canvas-film/README.md`: several short flashes share one shot and pick the flash by frame number, since `--motion-blur`'s shutter closes only at shot boundaries. The new 自己写合成 section: leave `three` off the shots and use the renderer yourself; render targets sized by `PRX`; linear light; no dither in the alpha; a distance field for lettering, with its normals from a slightly blurred copy.
+
+**Two recipes from an 8 s intro: a line through fast cuts, text out of noise**
+- Why: both held up in a film someone watched and passed. The first answered a verdict on the cut before it, whose flashes were each fine but read as a jumble together.
+- `recipes/rhythm/thread-through-cuts.md`: a spark trailing a line runs through every cut, at the same place on either side, so very different flashes read as one route. Its tail shortens as the cuts speed up, and flashes of 6 frames or fewer share one long curve; without those two it tangles or zigzags.
+- `recipes/type/diffusion-reveal.md`: the picture drowns in noise, a front sweeps back, cells getting finer towards it, text grows out one character every 3 frames, and the character that matters lands last, readable from its second frame. A hint of it shows in the noise for the last 8 frames first.
+- Both `battle-tested`, with sketches and sample sheets; the counts in the READMEs, the overview diagrams and the homepage go to 74.
+
+**Look at the 4K at 1:1 before delivery**
+- Why: an intro's chrome lettering had ribs along its curved bevels, a distance field's staircase magnified by the reflection. They do not show on 1080p contact sheets, and the film had passed review on those.
+- `playbook/02-verification.md`, the line on 4K: crop the brightest, most mirror-like thing at 1:1 and look.
+
+**`bin/vh check` says when a fade stops short of black, and canvas-film's `fadeOut` reaches it**
+- Why: a fade timed to the film's length ends after its last frame is drawn, because that frame is at length − 1 frame. An 8 s intro's last frame still had a mean of 13 of 255, so the next shot would have jumped, and its transparent version vanished instead of fading out.
+- `tools/isoframes.py --motion`: the mean brightness still falling on each of the last 4 frames, by at least 6 levels in all and 1 on the last step, with the last frame above 4, is a warning (`check.fade`, with its ways out in `tools/remedies.json`). Never a failure: a film may mean to end there. Of the 30 films at hand it flagged that intro's own cuts and one hand-drawn film that ends mid-shrink.
+- `engines/canvas-film`: `fadeOut` now ends 1.5 frames before the film does, so the last frame is black with `--motion-blur`'s shutter counted. Before, the default 0.6 s fade left 5.6 % of the picture on it. New projects only: a project keeps the engine it was made with.
+- `playbook/02-verification.md`, 已知的坑: a line on it.
+
+**`bin/vh render --alpha`: files about 2.5 times smaller**
+- Why: a 2.4 s transparent title at 4K came out at 839 MB (2.9 Gbps). `prores_ks` multiplies its bit budget by 20 once there is alpha (`proresenc_kostya_common.c`), and ProRes codes alpha losslessly, so 16 bits kept all of a page's dither.
+- `tools/film/render.mjs`: a fixed quantizer (`-qscale:v 6`) and an 8-bit alpha. One second of that title: 1080p 140 → 57 MB, 4K 394 → 139 MB. Composited over dark, grey, orange and white, the worst of five frames is 56 dB from before at 1080p and 57 dB at 4K. 8 bits are all the PNG frames have; of `--motion-blur`'s mean it loses at most half a level of 255.
+- Tried and left out: smoothing the colour where alpha is tiny, which looked like the cause at first. As an ffmpeg chain it saved another 14 % and cost 10 dB.
+- The sidecar's `encoder` says `qscale` and `alpha_bits`, and CI holds them.
+
 **Narration for long explainers: a reversal every few minutes, three voices, saying things precisely**
 - Why: in 2026-11 the script of a 30-minute narrated explainer went through two outside reviews. What they found that any narrated film runs into is written down here as defaults; the rest stays with that film.
 - `playbook/09-narrative.md` §10, on sentences: paragraph after paragraph ending on a short summary line reads like tapping the blackboard, so the short line is kept for the one that matters; everyday words, but few slang ones, one or two vivid phrases a chapter; telling a case, explaining an idea and talking about people each take their own voice; say things precisely rather than fully (an observational study gives a correlation, a manuscript nobody has reviewed is not a paper, an experiment's result says how it was measured, a made-up scene says so and is called back with "假如", a big judgment that cannot be backed becomes a question for the viewer), by scoping the words rather than adding hedges; and from a reviewer's or another model's sample rewrites, take the meaning, not the sentences.

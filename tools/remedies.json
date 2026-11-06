@@ -52,6 +52,16 @@
     "doc": "playbook/03-motion-design.md"
    }
   ],
+  "check.fade": [
+   {
+    "say": "a fade meant to reach black: end it a frame and a half before the film does, then draw those frames again",
+    "run": "bin/vh patch"
+   },
+   {
+    "say": "why the last frame matters when a film is spliced",
+    "doc": "playbook/02-verification.md#已知的坑"
+   }
+  ],
   "check.iso": [
    {
     "say": "a capture glitch: draw those frames again, the rest kept",

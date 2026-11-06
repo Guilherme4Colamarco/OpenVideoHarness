@@ -30,7 +30,7 @@ function picture(t) {   // the shot (or the two of a transition) and the grain: 
 function draw(t, scene) {   // scene: the picture without the interface over it (the chapter bar and the caption)
   picture(t);
   if (!scene) { chapterBar(t); captionBand(t); }
-  shade(Math.max(FILM.fadeIn > 0 ? 1 - seg(t, 0, FILM.fadeIn) : 0, FILM.fadeOut > 0 ? seg(t, DUR - FILM.fadeOut, DUR) : 0));
+  shade(Math.max(FILM.fadeIn > 0 ? 1 - seg(t, 0, FILM.fadeIn) : 0, FILM.fadeOut > 0 ? seg(t, DUR - FILM.fadeOut, DUR - 1.5 / FILM.fps) : 0));
 }
 
 // the frame at t, from a cleared canvas: reset() also drops any state a thrown frame left behind. o.layer "scene": the

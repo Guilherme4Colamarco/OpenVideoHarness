@@ -21,6 +21,7 @@ compare(entries, used, policy) → the findings of the two directions, for the r
   unused        a record no film loaded, no mix used, nothing declares a use of (used_by) and no record made from it
                 (derived_from) is used: warn; said only when at least one film's files are known
   mix           the sound files a mix used that no record covers: one info line (a TTS take is AI-generated: register it)
+used_ids(entries, used) → the ids of the records a film in used loaded or a mix in it used, and what they were made from
 overview(project) → the counts bin/vh status gives (version 1 of its "assets" field): records, uncleared, not_taken,
 aigc, unregistered, policy, and the budget (budget.summary()'s shape).
 """
@@ -192,6 +193,20 @@ def compare(entries, used, policy):
                 put("unused", "warn", r, r["path"], "on record, but no film's page loaded it, no mix used it, no used_by says what it is for "
                     "and nothing made from it is used (bin/vh assets remove it, or --used-by)")
     return out
+
+
+def used_ids(entries, used):
+    live = [e["record"] for e in entries if "removed" not in e["record"] and isinstance(e["record"].get("path"), str) and e["record"].get("path")]
+    by_path = {r["path"]: r for r in live}
+    folders = [r for r in live if r["path"].endswith("/")]
+    by_id = {r.get("id"): r for r in live}
+    seen = set()
+    for p in {p for f in used["films"] for p in f["files"]} | {p for m in used["mixes"] for p in m["inputs"]}:
+        r = _covering(p, by_path, folders)
+        while r is not None and r.get("id") not in seen:
+            seen.add(r["id"])
+            r = by_id.get(r.get("derived_from"))
+    return seen
 
 
 def overview(project):

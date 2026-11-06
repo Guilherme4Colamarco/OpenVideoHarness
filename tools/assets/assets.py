@@ -8,7 +8,7 @@ usage: bin/vh assets [list] <project|ledger> [--json] [--all]
                   [--cost "0.04 USD"] [--used-by S03,S05] [--tags a,b] [--derived-from ID] [--note TEXT] [--id ID] [--kind K]
                   [--extra JSON] [--update] [--to PATH] [--sha256 HEX] [--rate 2M] [--offline DIR] [--json]
        bin/vh assets check <project> [--policy strict|record] [--film <video> | --all-films] [--json]
-       bin/vh assets credits <project> [--lang zh|en] [--out f.md] [--json]
+       bin/vh assets credits <project> [--film <video>] [--lang zh|en] [--out f.md] [--json]
        bin/vh assets remove <project> <id> [--why TEXT] [--json]
 <project> is a folder (or a file inside it), or a name under $OVH_PROJECTS / projects/ (the date prefix optional).
 
@@ -40,9 +40,17 @@ usage: bin/vh assets [list] <project|ledger> [--json] [--all]
            素材许可, else strict) takes public domain, CC0, CC BY, permissive licences, material used under an agreement,
            own work and generated material, and fails on NC, ND, BY-SA and unknown; record lists those as warnings and
            takes them. --policy: another policy for this run
-  credits  the credit lines: the ones a licence requires (the BY family, an agreement's, every record's attribution),
-           the courtesy ones (public domain), and the notice for AI-generated content with what it covers; to stdout,
-           or --out a file. --lang: zh or en (default: the BRIEF's Language)
+  credits  text to paste where viewers read it: the credit lines a licence requires (the BY family, an agreement's, every
+           record's attribution), the courtesy ones (public domain), and a sentence on the AI-generated content with what
+           it covers; to stdout, or --out a file. What is for the publisher and not for viewers (turn on the platform's
+           AI-content declaration; the lines merged; the records left out) goes to stderr. Records become one line only when no
+           words a licence asks for are lost: the same words (punctuation aside), or, from one source (the same page, author and
+           licence, or made from one record: derived_from), one line's words inside the other's. The longer stays, or the
+           original's line when the other is made from it, and what was dropped is said on stderr. Lines that differ otherwise
+           (another title, another licence version, another author) stay apart. --film <video>: only what that film used, as check --film reads it: the files its page
+           loaded, any mix's inputs, what those were made from; a data or other file (a table, a paper) stays, since a
+           film can use one without loading it. A picture or a sound baked into something on no record is left out too:
+           read the list. --lang: zh or en (default: the BRIEF's Language)
   remove   mark a record removed (why: --why): kept on record and in the spend, out of check and credits. A generated
            clip's record from before v1 is moved into the ledger to be marked
 --json: {"version": 1, "tool", "project", …} (tools/desk/README.md, 素材台账, has every field); the lines go to stderr.
@@ -263,6 +271,8 @@ def cmd_add(a):
         + (" · AIGC" if rec.get("aigc") else "") + (f" · {budget.money(pay['amount'], pay['currency'])} spent" if pay else ""))
     if os.path.isabs(rec["path"]):
         say("  ! it is outside the project: a page cannot load it (copy it under assets/ and register the copy)")
+    elif rec["path"].split("/")[0].casefold() == "out":
+        say("  ! it is under out/, which gets cleared (bin/vh clean, or by hand), and bin/vh assets check then fails on it: copy it under assets/ and register the copy")
     if licenses.risks(cls):
         say(f"  ! {', '.join(licenses.RISK_WORDS[k] for k in licenses.risks(cls))}: "
             + ("Assets: strict does not take it (bin/vh assets check fails on it)" if not licenses.accepted(cls, policy) else "listed by bin/vh assets check (Assets: record)"))
@@ -380,14 +390,15 @@ def cmd_check(a):
 TXT = {"zh": {"source": "来源", "required": "素材署名", "courtesy": "致谢（公有领域，不强制署名）", "aigc": "AI 生成内容", "by": "，",
               "no_author": "作者未记", "unit": "{n} 件",
               "kinds": {"image": "图片", "video": "视频", "audio": "声音", "font": "字体", "model": "3D 模型", "data": "数据", "other": "其他"},
-              "notice": "本片含 AI 生成的内容：{what}。发布时在平台的发布页打开 AI 生成内容的声明"
-                        "（入口名称以发布时的界面为准；规则见 references/genvideo-ledger.md 的“披露”）。"},
+              "public": "本片含 AI 生成的内容：{what}。",
+              "declare": "发布时在平台的发布页打开 AI 生成内容的声明（入口名称以发布时的界面为准；规则见 references/genvideo-ledger.md 的“披露”）。"},
        "en": {"source": "source", "required": "Credits", "courtesy": "Courtesy (public domain, no credit required)", "aigc": "AI-generated content",
               "by": ", ", "no_author": "author not on record", "unit": None,
               "kinds": {"image": "image", "video": "video clip", "audio": "sound", "font": "font", "model": "3D model", "data": "data file",
                         "other": "other file"},
-              "notice": "This film contains AI-generated content: {what}. Turn on the platform's AI-content declaration when publishing "
-                        "(its name changes; the rules are in references/genvideo-ledger.md, 披露)."}}
+              "public": "This film contains AI-generated content: {what}.",
+              "declare": "Turn on the platform's AI-content declaration when publishing (its name changes; the rules are in references/genvideo-ledger.md, 披露)."}}
+FACTS = ("data", "other")   # a film can use these without its page loading them: numbers typed into the code, a paper a figure was read from
 
 
 PROVIDERS = {"nasa": "NASA", "wikimedia-commons": "Wikimedia Commons", "internet-archive": "Internet Archive", "openverse": "Openverse",
@@ -426,16 +437,57 @@ def lang_of(project):
     return "en" if m and m.group(1).lower().startswith("en") else "zh"
 
 
-def credits(project, lang=None, said=None):
-    """{"lang", "required": [{"id", "line"}], "courtesy", "aigc": {"count", "kinds", "models", "notice"}, "missing", "text"}."""
+def source_key(r, live):
+    """What makes two records one source: the page the original came from, its author and licence class, or that original
+    itself (up derived_from) when it has no page. None: nothing says."""
+    root, seen = r, set()
+    while root.get("derived_from") in live and root.get("id") not in seen:
+        seen.add(root.get("id"))
+        root = live[root["derived_from"]]
+    src = root.get("source") if isinstance(root.get("source"), dict) else {}
+    if src.get("url"):
+        return ("page", src["url"], str(src.get("author") or "").casefold(), ledger.class_of(root))
+    return ("original", root.get("id")) if root is not r else None
+
+
+def inside(short, long):
+    return bool(short) and any(long[i:i + len(short)] == short for i in range(len(long) - len(short) + 1))
+
+
+def one_line_a_source(lines, r, line, live):
+    """Put a record's line into lines, on another line only when no words a licence asks for are lost: the same words, or,
+    from one source, one's words inside the other's. The longer stays; the original's when the other is made from it
+    (the original's credit is what covers it: what goes is only the words on how it was used)."""
+    key, words, derived = source_key(r, live), re.findall(r"[^\W_]+", line.casefold()), bool(r.get("derived_from"))
+    for x in lines:
+        same_source = key and x["_key"] == key
+        if words == x["_words"] or (same_source and (inside(words, x["_words"]) or inside(x["_words"], words))):
+            x["ids"].append(r.get("id"))
+            take = words != x["_words"] and (x["_derived"] and not derived or (x["_derived"] == derived and len(words) > len(x["_words"])))
+            if take:
+                x["merged"].append(x["line"])
+                x["id"], x["line"], x["_words"], x["_derived"] = r.get("id"), line, words, derived
+            elif x["line"] != line and line not in x["merged"]:
+                x["merged"].append(line)
+            return
+    lines.append({"id": r.get("id"), "ids": [r.get("id")], "line": line, "merged": [], "_key": key, "_words": words, "_derived": derived})
+
+
+def credits(project, lang=None, said=None, used=None):
+    """{"lang", "film", "left_out": [ids], "required": [{"id", "ids", "line", "merged"}], "courtesy", "aigc": {"count", "kinds",
+    "models", "public", "declare", "notice"}, "missing", "text"}. used: uses.uses()'s, to credit only what those films used."""
     base, ents, _ = ledger.entries(project, said)
     lang = lang or lang_of(project)
     T = TXT[lang]
-    req, cour, missing, gen = [], [], [], []
+    req, cour, missing, gen, left = [], [], [], [], []
     live = {e["record"].get("id"): e["record"] for e in ents if "removed" not in e["record"]}
+    kept = uses.used_ids(ents, used) if used is not None else None
     for e in ents:
         r = e["record"]
         if "removed" in r or e["problems"] and not isinstance(r.get("license"), dict):
+            continue
+        if kept is not None and r.get("id") not in kept and r.get("kind") not in FACTS:
+            left.append(r.get("id"))
             continue
         cls = ledger.class_of(r)
         need = licenses.attribution(cls)
@@ -446,11 +498,12 @@ def credits(project, lang=None, said=None):
             continue
         if need in ("required", "agreement") or (isinstance(r.get("attribution"), str) and r["attribution"].strip() and need != "courtesy"):
             line, miss = credit_line(r, lang)
-            req.append({"id": r.get("id"), "line": line})
+            one_line_a_source(req, r, line, live)
             if miss and need == "required":
                 missing.append({"id": r.get("id"), "what": miss})
         elif need == "courtesy":
-            cour.append({"id": r.get("id"), "line": credit_line(r, lang)[0]})
+            one_line_a_source(cour, r, credit_line(r, lang)[0], live)
+    req, cour = [[{k: v for k, v in x.items() if not k.startswith("_")} for x in xs] for xs in (req, cour)]
     kinds = {}
     for r in gen:
         kinds[r.get("kind", "other")] = kinds.get(r.get("kind", "other"), 0) + 1
@@ -459,14 +512,17 @@ def credits(project, lang=None, said=None):
                                                 f"{n} {T['kinds'].get(k, k)}{'' if n == 1 else 's'}" for k, n in kinds.items())
     if models:
         what += ("（" + "、".join(models) + "）") if lang == "zh" else f" ({', '.join(models)})"
-    notice = T["notice"].format(what=what) if gen else None
+    public = T["public"].format(what=what) if gen else None
+    declare = T["declare"] if gen else None
     parts = []
     for head, items in ((T["required"], req), (T["courtesy"], cour)):
         if items:
             parts.append(head + "\n" + "\n".join(f"- {x['line']}" for x in items))
-    if notice:
-        parts.append(T["aigc"] + "\n- " + notice)
-    return {"lang": lang, "required": req, "courtesy": cour, "aigc": {"count": len(gen), "kinds": kinds, "models": models, "notice": notice},
+    if public:
+        parts.append(T["aigc"] + "\n- " + public)
+    return {"lang": lang, "left_out": left, "required": req, "courtesy": cour,
+            "aigc": {"count": len(gen), "kinds": kinds, "models": models, "public": public, "declare": declare,
+                     "notice": public + ("" if lang == "zh" else " ") + declare if gen else None},
             "missing": missing, "text": "\n\n".join(parts) + ("\n" if parts else "")}
 
 
@@ -474,7 +530,11 @@ def cmd_credits(a):
     project = find(a.project)
     said = []
     try:
-        c = credits(project, a.lang, said)
+        used = uses.uses(project, film=a.film) if a.film else None
+    except ValueError as e:
+        raise Usage(f"--film {e}")
+    try:
+        c = credits(project, a.lang, said, used)
     except ledger.LedgerError as e:
         raise Usage(str(e))
     if a.out:
@@ -482,12 +542,20 @@ def cmd_credits(a):
         say(f"credits: {len(c['required'])} required, {len(c['courtesy'])} courtesy, {c['aigc']['count']} AI-generated → {a.out}")
     elif not a.json:
         print(c["text"] or ("（没有要署名的素材）" if c["lang"] == "zh" else "(nothing to credit)"), end="" if c["text"] else "\n")
+    if c["aigc"]["declare"]:
+        print(f"{PROG} credits: for you, not for the text: {c['aigc']['declare']}", file=sys.stderr)
+    for x in c["required"] + c["courtesy"]:
+        for line in x["merged"]:
+            print(f"{PROG} credits: merged, same source: “{line[:90]}” into “{x['line'][:90]}”", file=sys.stderr)
+    if c["left_out"]:
+        print(f"{PROG} credits: left out, not in what {a.film} used: {', '.join(map(str, c['left_out'][:12]))}"
+              + (f" … and {len(c['left_out']) - 12} more (--json has them all)" if len(c["left_out"]) > 12 else ""), file=sys.stderr)
     for m in c["missing"]:
         print(f"{PROG} credits: ! {m['id']}: no {m['what']} on record, and its licence asks for one", file=sys.stderr)
     for s in said:
         print(f"{PROG} credits: ! {s}", file=sys.stderr)
     if a.json:
-        print(json.dumps({"version": 1, "tool": f"{PROG} credits", "project": str(project), **c}, ensure_ascii=False, indent=1))
+        print(json.dumps({"version": 1, "tool": f"{PROG} credits", "project": str(project), "film": a.film, **c}, ensure_ascii=False, indent=1))
     return 0
 
 
@@ -544,6 +612,7 @@ def parser():
     p.add_argument("--json", action="store_true")
     p = sp.add_parser("credits", prog=f"{PROG} credits", help="the credit lines and the AI-content notice")
     p.add_argument("project")
+    p.add_argument("--film", help="only what this film used (a video whose .render.json lists its files)")
     p.add_argument("--lang", choices=("zh", "en"))
     p.add_argument("--out")
     p.add_argument("--json", action="store_true")

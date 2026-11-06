@@ -76,6 +76,7 @@ const CHAPTERS = [{ at: 0, title: "挂在字上" }, { at: "@b1", title: "翻一�
 ```
 
 - 一个镜头从它的 `at` 开始，到下一个镜头的 `at` 结束；第一个镜头从 0 开始。镜头顺序不对、短于 0.2 s、短于自己的转场，`ready` 都会报出来。
+- 快闪：镜头不能短于 0.2 s。更短的闪，几闪合成一个镜头（`see` 写清里面有什么），在 `draw` 里按帧号算到了哪一闪：`const f = Math.round(t * FILM.fps)`。要用帧号，不用 `t`：运动模糊的快门只在镜头边界收口，一个镜头里的闪之间没有边界，子帧取整到自己那一帧才不会串到下一闪。
 - `draw(t, s)`：`t` 是整片的秒数，`s` = `{ id, t0, t1, lt, u, o, din, dout }`（镜头起止、镜内秒数、镜内进度 0–1、解析好的 `o`、进出转场的长度）。
 - 其他字段：`see` 写观众要看懂什么（分镜和审阅用）；`cam: [z0, z1, cx, cy]` 让镜头在整镜里从 z0 缓推到 z1，停着的画面也不会冻住；`light: true` 表示浅色画面，字幕改垫一块深色底；`nocap: ["a1"]` 表示画面上已经用大字写了这句，整句不出字幕。
 - 转场 `tin` 写名字，或者 `["turn", 1.2]` 改时长。新镜头从自己的 cue 开始计时，旧镜头在下面接着走到转场结束；两边每帧都整幅重画（需要时画进离屏画布），不留跨帧的状态。
@@ -90,6 +91,7 @@ const CHAPTERS = [{ at: 0, title: "挂在字上" }, { at: "@b1", title: "翻一�
   | `blot` | 1.2 s | 墨从几处晕开，软边，晕到的地方露出新画面 |
 
 - 章节进度条（顶上）：每章一格，宽度按章名；当前一章随进度填满，章名一直显示；每章开头约 3 s 显示全部章名（章名太多、一行放不下时，只显示当前一章）。显示的时段由 `FILM.bar = { from, to }` 定，默认从第一章到片尾。
+- 改章名：源头是 `src/50-shots.js` 的章节表（剪辑表的片子，`edit.json` 写了 `chapters` 就是它）。翻页、进度条、审阅台和 `bin/vh cues --chapters` 都从 `window.film.chapters` 读，改这一处就够。分章配音时旁白那边常有自己的一份（`audio/` 下的章节 json、时间轴里的章节），定一份当源头，其余用脚本生成，别手改几处。文档靠手改：SCRIPT、STORYBOARD、BRIEF 的 Outline、PACKAGING，`grep` 一遍旧名字；`bin/vh cues <项目> --chapters` 重出章节表贴回 PACKAGING。进度条上的字变了，每章开头都显示全部章名，往往等于整片重渲，定稿前算这笔账。
 
 ### 用同一份镜头表生成分镜和节奏图
 
@@ -111,7 +113,7 @@ bin/vh rhythm <项目> --shots film.html # 有手写 shots.json 时，明确改�
 ## 字
 
 - 画字一律用 `txt(s, x, y, o)`。字号在最底层兜住：`font()` 不会给出小于 `FILM.minText`（默认 44 px，按 BRIEF 的"在哪看"改，见 `playbook/03` §4）的字号，`measure()` 用的是同一个字号，排版不会和画出来的对不上。字幕的字号另有一档，`minText` 管不到：`FILM.caption.size`（默认 52；`playbook/03` §4 的字幕下限 desktop 48、feed 115），改"在哪看"时两样一起改。
-- 故意要小、要淡的字（一页原文当底纹、时间轴的刻度）写 `texture: true`：它可以小于下限，也不算 read。
+- 故意要小、要淡的字（一页原文当底纹、时间轴的刻度）写 `texture: true`：它可以小于下限，也不算 read。其余的字写小了不会报错，`txt()` 和 `measure()` 直接按下限画和量，所以用户本人放宽字号的导航字也要写 `texture: true`，否则写多小都是下限（要查遮挡，再调 `read()` 登记）。
 - `ready` 时每个镜头抽 5 个时刻各画一遍，绕过 `txt()` 自己设 `X.font` 写下的小字也会被抓到，打成一行 `console.error`（`bin/vh frames` 在开头"while loading"下面列出来），写明镜头和那段字。判的是代码要的字号，不是动画缩放途中的大小。
 - `label(t, at, s, x, y, o)`：一行字在 `at` 升起，停到镜头结束（或 `o.until` 前淡出）；完全出来以后登记成 read，`bin/vh textcheck` 按它查遮挡和对比。`stamp()` 盖下以后也算 read。自己画的字要登记，就在 `draw` 里调 `read(text, start, end)`。
 - 跨过切点或转场一直在屏上的字（HUD、角标、跨段的字卡）：`read()` 默认只记本镜头直接画进画面的那一段（转场进来以后到镜头结束），跨切点的一张卡会被记成两段短的，`bin/vh readcheck` 报出假的 FAIL。写 `read(text, start, end, { overlay: true })`（`label()` 写 `overlay: true`），按 start 到 end 记成一条，只受片头片尾的淡入淡出和片长约束。卡要由它跨过的每个镜头画（或者画在镜头之上的一层里）；录制器只画镜头，所以登记写在镜头的 `draw` 里，哪个镜头都行，几处一样的调用只留一条。第 4 个参数照旧可以只写种类（`"label"`），也可以写进对象：`{ kind: "label", overlay: true }`。区间是你声明的：`bin/vh textcheck` 照样在区间里抽样（跨过切点的那几次也抽），哪个时刻没画出来，列成 "missing from some samples"。
@@ -354,9 +356,32 @@ const SHOTS = [
 - 没有 GPU 的机器（CI、云主机）：`bin/vh frames`、`render`、`determinism`、`textcheck` 都加 `--soft-gl`，用软件渲染 WebGL。没有 WebGL 时 `ready` 会这样说。
 - 镜头的 `cam: [z0, z1, …]` 推到 1 以上时，3D 跟着 2D 一起放大，可它是按片子分辨率渲好的一张图，会比矢量画的 2D 软一些。要推近又要清楚，就用 `three.cam` 移 3D 自己的机位。
 - 重 3D 的长片少开几个 worker：几个浏览器同时渲重帧会卡死 GPU（`bin/vh render --workers 2`，卡住的那段 `--workers 1` 续渲）。
-- 后期（泛光、景深）不在这一层里。
+- 4K 里按像素算的量：这一层 `setPixelRatio(1)`，画布就是物理像素（`--dpr 2` 时 3840 宽），所以 `gl_PointSize`、线宽这类物理像素量到 4K 只剩一半，要乘 `renderer.domElement.width / W`（1920 宽的片子就是 `/ 1920`）。已经归一化的量（按 960 × 540 这类画面单位算的宽度）本来就跟着分辨率走，再乘就宽一倍；`PointsMaterial` 开着 `sizeAttenuation` 时 three 已按画布高度算，也不用乘。一支片子两种错都犯了：星点小一半、光束宽一倍，都只在 4K 出现。所以出 4K 前先抽几帧 `bin/vh frames <项目> --at 4.9 --dpr 2`，出片后跑 `bin/vh check <4K> --against <1080p>`。
+- 后期（泛光、景深）不在这一层里，要的话见下面的"自己写合成"。
 
 旧项目要用 Three.js 层：复制 `src/07-three.js`，在 `film.html` 的 `<head>` 里加 import map（`"three"` 指向 `./three/build/three.module.js`，`"three/addons/"` 指向 `./three/addons/`），`06-time-map.js` 之后加 `07-three.js` 的 script 标签；`00-core.js` 合入 `FILM.three` 和 `buildShots()` 里的 `three`；`90-main.js` 合入 `boot()` 里的 `loadThree()`、`build()` 里的 `checkThree()` 和 `drawShot()` 里的 `drawThree()`；再把 `engines/canvas-film/three/` 整个复制成项目的 `three/`。`bin/vh doctor <项目>` 会列出还差哪些。
+
+#### 自己写合成：后期，以及 2D、3D 共用一套光
+
+要辉光、镜头光条、色散、冲击变形，或者要让 2D 画的图和 3D 场景走同一套光，可以绕开"3D 画在 2D 下面"，自己写一条合成管线。一支 8 秒的片头就是这样做的：
+
+```js
+let renderer, main, world, camera, finalScene, finalCam;   // 跨帧只留这些建好的对象，不留上一帧的结果
+Object.assign(FILM, { three: { lights: [], env: null, build(W3) { renderer = W3.renderer; /* 渲染目标、全屏 pass，都只在这里建一次 */ } } });
+const SHOTS = [{ id: "S01", at: 0, draw(t) {            // 镜头不写 three 字段：这一层就不替你画，renderer 归你用
+  renderer.setRenderTarget(main); renderer.render(world, camera);   // 来源：3D 场景，或画进离屏 2D 画布的 CanvasTexture
+  /* 叠加层、泛光的降采样和升采样 …… */
+  renderer.setRenderTarget(null); renderer.render(finalScene, finalCam);
+  X.drawImage(renderer.domElement, 0, 0, W, H);         // 合成结果铺满这一帧，2D 的字可以接着画在上面
+} }];
+```
+
+- **4K**：渲染目标按 `W * PRX`、`H * PRX` 建，着色器里的长度都用 1920 的坐标算（`uRes` 传 `W`、`H`）。这样 `--dpr 2` 是真 4K，不用另改；出片前跑 `bin/vh check <4K> --against <1080p>`。
+- **线性光**：2D 来源的 `CanvasTexture` 设 `NoColorSpace`，进着色器先解码（`pow(c, 2.2)`），渲染目标用 `HalfFloatType`，最后一步再编码，加一点抖动防色带。
+- **纯函数**：随机数用整数哈希，按格子和帧号算，不用 `Math.random()`，也不留跨帧的历史（拖尾按 `t` 往回取）。跑 `bin/vh determinism` 查。
+- **透明版**：加一个开关，别的页面内容不变，只把底换成透明，再用 `bin/vh render --alpha`。透明度别把抖动和颗粒算进去：ProRes 的透明度是无损的，带噪声就多占很多码率。
+- **发亮的字**：要斜面和反光，把字做成距离场存成浮点纹理。掩膜放大一倍算距离场、再缩回；法线单独用一份略模糊的，轮廓用清晰的那份。否则镜面反射会把距离场的台阶放大成一排细纹，1080p 看不出，4K 看得出。
+- **片子重**：`--workers 2`，帧画得慢就加 `--frame-timeout`。
 
 ## 局限
 

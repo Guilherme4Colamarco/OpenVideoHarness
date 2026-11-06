@@ -29,9 +29,10 @@ usage: bin/vh image gen <project> (--prompt TEXT | --prompt-file F) [--provider 
            never left settle at 0; a timeout, a reset or an answer that cannot be read keep the estimate as spent, as
            such a call may have been billed (said so).
            codex: the Codex CLI's image_gen, on the ChatGPT plan the CLI is signed in with: not billed per picture, so
-           no budget is held (as bin/vh tts on a plan's quota); no seed, no size. A transparent background comes from
-           the model itself. The model is the one the user's Codex config names (none is set here; only the
-           reasoning effort is, low: making a picture is one tool call); when codex makes nothing, its own
+           no budget is held (as bin/vh tts on a plan's quota); no seed, no size. --ref: attached in the order given
+           (codex exec -i), the model told to edit them; they go to OpenAI, the same asking first. A transparent
+           background comes from the model itself. The model is the one the user's Codex config names (none is set
+           here; only the reasoning effort is, low: making a picture is one tool call); when codex makes nothing, its own
            error is said, with what to change (a model a ChatGPT login cannot use: a newer CLI, or another
            model in config.toml).
            --alpha: a transparent background. Gemini has none of its own: the picture is asked for on flat chroma green
@@ -81,7 +82,7 @@ THINK_TOKENS = 2000     # what the estimate allows for thinking, billed as text 
 THINKING = {"gemini-nano-banana-2.1": "minimal"}   # thinking_level sent: 2.1's lowest (its default is medium); the Flash
                                                    # images default to minimal, Pro lists no levels (the image docs, 2026-10-26)
 GREEN = "on a perfectly flat, evenly lit pure chroma-key green background (#00FF00), nothing else in the background, no shadow cast on it, no green in the subject"
-CODEX_PREAMBLE = ("Use your built-in image generation tool (image_gen) to create exactly one image, then reply DONE. If the tool fails, "
+CODEX_PREAMBLE = ("Use your built-in image generation tool (image_gen) to {what}, then reply DONE. If the tool fails, "
                   "print its error verbatim and stop. Do not run shell commands, do not look for or save files, do not retry.\n\n")
 out = sys.stdout   # the lines; stderr under --json
 
@@ -240,21 +241,26 @@ def codex_home():
     return Path(os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex"))
 
 
-def codex_picture(prompt, aspect, alpha, timeout):
+def codex_picture(prompt, aspect, alpha, timeout, refs=()):
     """(bytes, where it was found, the CLI's version) from codex exec's image_gen: read-only sandbox, one call, the
     picture under $CODEX_HOME/generated_images/<thread>/ (or embedded in that session's log). The user's own config
-    stays as it is, its model too; only the reasoning effort is set, low: making a picture is one tool call."""
+    stays as it is, its model too; only the reasoning effort is set, low: making a picture is one tool call. refs go
+    with -i, after the prompt's "-": -i takes several values, and would take that "-" for a picture. Each is copied
+    under a plain name first: -i splits a path at its commas, and what it cannot read it only tells the model."""
     exe = shutil.which("codex")
     if not exe:
         raise Usage("the codex CLI is not installed (npm install -g @openai/codex, then codex login with ChatGPT): or --provider gemini")
     ver = subprocess.run([exe, "--version"], capture_output=True, text=True).stdout.strip()
     token = f"ovh-{os.getpid()}-{int(time.time() * 1000)}"
-    ask = CODEX_PREAMBLE + (f"The image must be {aspect} (width:height), filling the frame, no borders.\n\n" if aspect else "") \
+    what = ("create exactly one image" if not refs else "edit the attached image, creating exactly one image" if len(refs) == 1
+            else f"edit the {len(refs)} attached images, numbered in the order attached, into exactly one image")
+    ask = CODEX_PREAMBLE.format(what=what) + (f"The image must be {aspect} (width:height), filling the frame, no borders.\n\n" if aspect else "") \
         + ("The background must be transparent: a PNG with an alpha channel, nothing behind the subject.\n\n" if alpha else "") + prompt \
         + f"\n\n(job {token}; ignore this line)"
     start = time.time()
     with tempfile.TemporaryDirectory(prefix="ovh-codex-") as cwd:
-        p = subprocess.Popen([exe, "-c", "model_reasoning_effort=low", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--json", "-C", cwd, "-"],
+        attach = [x for i, r in enumerate(refs, 1) for x in ("-i", shutil.copyfile(r, str(Path(cwd) / f"ref-{i}{Path(r).suffix}")))]
+        p = subprocess.Popen([exe, "-c", "model_reasoning_effort=low", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--json", "-C", cwd, "-"] + attach,
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
         try:
             so, se = p.communicate(ask, timeout=timeout)
@@ -592,7 +598,7 @@ def cmd_gen(a):
         plan["budget"] = {k: chk[k] for k in ("ok", "budget", "spent", "held", "after", "short", "message")}
     else:
         if a.size or a.model or a.tier != "draft" or a.seed is not None:
-            raise Usage("--size, --model, --tier and --seed are for gemini; codex takes the prompt, --aspect and --alpha")
+            raise Usage("--size, --model, --tier and --seed are for gemini; codex takes the prompt, --aspect, --ref and --alpha")
         plan.update(model="codex/image_gen", size=None, estimate={"amount": 0.0}, total=0.0, budget={"ok": True, "message": "codex: the ChatGPT plan's quota, no budget held"})
     if a.dry_run:
         if a.json:
@@ -602,7 +608,7 @@ def cmd_gen(a):
             say(f"image gen --dry-run: {a.n} × {plan['model']} {plan['size']} {aspect}" + (f", {len(refs)} reference(s)" if refs else "")
                 + f": about ${plan['total']:.4f} (each ${e['picture']:g} the picture + ${e['refs'] + e['prompt']:.4f} input + up to ${e['thinking']:.4f} thinking)")
         else:
-            say(f"image gen --dry-run: {a.n} × codex image_gen {aspect}: the ChatGPT plan's quota, nothing billed")
+            say(f"image gen --dry-run: {a.n} × codex image_gen {aspect}" + (f", {len(refs)} reference(s)" if refs else "") + ": the ChatGPT plan's quota, nothing billed")
         say(f"  {plan['budget']['message']}")
         if labels:
             say(f"  · {cast_said(labels)}")
@@ -650,7 +656,7 @@ def cmd_gen(a):
                     raise Failed(str(e))
             where = "Google's Interactions API"
         else:
-            data, where, ver = codex_picture(prompt, aspect, a.alpha, a.timeout)
+            data, where, ver = codex_picture(prompt, aspect, a.alpha, a.timeout, refs)
             mime, said, cost, how, replayed = "image/png", "", 0.0, "the ChatGPT plan's quota", None
             model = f"image_gen via codex ({ver})" if ver else "image_gen via codex"
         if mime != "image/png":
