@@ -39,7 +39,7 @@ jobs:
           python-version: "3.12"
       # uv runs the Python behind bin/vh (music, storyboard, rhythm, cover-preview …); without it those smoke tests skip.
       # Its cache (pillow, numpy, scipy …) is kept between runs, keyed on this file: bump the pins here to refresh it.
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "0.12.21"
           enable-cache: true
@@ -90,7 +90,7 @@ jobs:
       # the same uv cache as the Linux job keeps, one for each shard: a shard saves only what its own groups fetched,
       # so a cache shared by both would hold one shard's packages and the other shard would download its own every run.
       # Keyed on this file and on tools/ci-shards.txt (moving a group between shards moves its packages too)
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           version: "0.12.21"
           enable-cache: true
