@@ -387,7 +387,7 @@ def parser():
         q.add_argument("project")
         if page:
             q.add_argument("url")
-            q.add_argument("--wait", type=float)
+            q.add_argument("--wait", type=int)
             q.add_argument("--timeout", type=int, default=30)
             q.add_argument("--why")
             q.add_argument("--id")

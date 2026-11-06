@@ -478,14 +478,14 @@
       "name": "obscura",
       "kind": "program",
       "purpose": "A headless browser for agents (a Rust engine with V8, no Chrome): bin/vh web reads a page with scripts run, as markdown, text, HTML or links, or as a screenshot, to check a fact against its source and keep the copy. Its own MCP server (obscura mcp) gives an agent the same browser for pages that need clicks. It blocks private addresses unless told otherwise.",
-      "version": {"min": "0.2.5", "tested": "0.2.5 on Linux x86_64 (the release asset tools/web/pins.json pins, its sha256 measured)"},
+      "version": {"min": "0.2.5", "tested": "0.2.5 on Linux x86_64 (the release asset tools/web/pins.json pins); not yet run on macOS"},
       "license": "Apache-2.0",
       "needs": {},
       "adapter": ["tools/web/web.py (browser, run)", "tools/web/pins.json", "skills/open-video-harness-web/SKILL.md"],
       "commands": ["web"],
       "required": false,
       "check": {"program": "obscura", "version": ["obscura", "--version"], "pattern": "obscura (\\d+(?:\\.\\d+)*)", "also": ["obscura-worker"]},
-      "install": {"macos": "bin/vh web install --accept-unpinned (the release asset by its size; github.com/h4ckf0r0day/obscura/releases)", "linux": "bin/vh web install (x86_64: size and sha256 checked; aarch64: --accept-unpinned)"}
+      "install": {"macos": "bin/vh web install (the pinned release from github.com/h4ckf0r0day/obscura/releases, size and sha256 checked)", "linux": "bin/vh web install (the same)"}
     },
     {
       "name": "fxtwitter",

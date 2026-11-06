@@ -71,6 +71,7 @@ effort 管 agent 自己查得多细，导演模式管人拍板哪些事，两个
 - 特效、转场、粒子、着色器、声画联动：`playbook/08-vfx-and-motion-sources.md`；
 - 3 分钟以上、或靠故事推进的片子：`playbook/09-narrative.md`；
 - 要发平台的钩子、标题、封面：`playbook/10-hooks-and-packaging.md`；
+- 查网页上的事实并存下那一页（可选，要装 Obscura）：`skills/open-video-harness-web/SKILL.md`；
 - 新点子：`playbook/12-ideation.md`；某种风格：`styles/README.md`；镜头怎么动、全片的节奏：`recipes/README.md`；
 - 社区 skill 和画风库：`references/community-skills.md`；同类型的社区作品和提示词：`cases/opus55-gallery.md`（想完立意再看；3D 长片深读在它的第 6 节）。
 
@@ -82,7 +83,7 @@ effort 管 agent 自己查得多细，导演模式管人拍板哪些事，两个
 2. **时间同步。** 时间依据由项目选：旁白片用配音的词级时间戳，音乐片用歌曲或谱子的节拍和小节表，数据片可以用事件表和读时。画面、声音和文字共用这一份时间（`bin/vh cues`、音乐时钟），不各自手写秒数；最后按实际输出查同步和长度。静音视频的时长由 reads 决定，画面在静音下要读得懂。
 3. **先规划再实现。** 写代码前先说清每一段要表达什么、观众依次要看懂哪些 reads（标起止时间，重要的不重叠）。分镜写在 `STORYBOARD.md`、镜头元数据或 `shots.json` 都行，只维护一份有效来源。
 4. **检查实际结果。** 新做和改过的部分连同受影响的交界重点查，没动的抽查；按要查的问题取联系表（整体）、逐帧 strip（切点和动作）或 crop（脸和细节），对照 `TASTE_CHECKLIST.md`。整片 draft 还要过清单里的打分层：换一个全新上下文的严苛 reviewer，按 8 个维度（含立意）打分；做几轮、怎样算过线按档位（`playbook/01-pipeline.md` 的"努力程度"：`standard` 1 轮，修最重要的至多 3 处，不设分数线；`studio` 做工五项都 ≥ 7 才出片），轮数有上限。检查成本很低，不要省。
-5. **事实有纪律。** 论文元数据、数字、引文一律照抄原文；拿不准的写进 `NOTES.md`，不编进视频。发布文案（标题、简介、章节）也算，交付前同样逐条对过。来源是网页时用 `bin/vh web fetch` 读（无头浏览器 Obscura，页面里的脚本会跑），网址、时间和那份副本存进项目，`NOTES.md` 抄它给的 `cite:` 行；文字靠脚本从 JSON 渲染、读出来几乎是空的页面，改用 `--dump html` 加 `--grep`。做法见 `skills/open-video-harness-web/SKILL.md`。
+5. **事实有纪律。** 论文元数据、数字、引文一律照抄原文；拿不准的写进 `NOTES.md`，不编进视频。发布文案（标题、简介、章节）也算，交付前同样逐条对过。
 6. **只在 `projects/` 里改东西。** `engines/` 是模板，`references/repos/` 是只读参考；需要时复制到自己的项目里再改。
 7. **不在文件里写 API key。** 一律从环境变量读取；缺 key 时告诉用户需要哪个。
 

@@ -4762,10 +4762,11 @@ web_checks() {   # bin/vh web (tools/web/web.py) with a stand-in obscura (OVH_OB
   t=$(mktemp -d "${TMPDIR:-/tmp}/vh-ci.XXXXXX"); p="$t/proj"; mkdir -p "$p" "$t/stub" "$t/rel"; echo "# BRIEF" > "$p/BRIEF.md"
   cat > "$t/stub/obscura" <<'STUB'
 #!/bin/sh
-# a stand-in for obscura fetch <url> -q --timeout N [--dump D] [--screenshot F]
+# a stand-in for obscura fetch <url> -q --timeout N [--dump D] [--screenshot F] [--wait S]; like the real one, S is whole seconds
 [ "$1" = --version ] && { echo "obscura 0.2.5"; exit 0; }
 url=$2; dump=; shot=
-while [ $# -gt 0 ]; do case $1 in --dump) dump=$2; shift ;; --screenshot) shot=$2; shift ;; esac; shift; done
+while [ $# -gt 0 ]; do case $1 in --dump) dump=$2; shift ;; --screenshot) shot=$2; shift ;;
+  --wait) case $2 in *[!0-9]*) echo "error: invalid value '$2' for '--wait <WAIT>'" >&2; exit 2 ;; esac; shift ;; esac; shift; done
 case $url in *fail*) echo "Error: Failed to navigate to $url: dns error" >&2; exit 1 ;; esac
 [ -n "$shot" ] && { printf 'PNG-ish' > "$shot"; exit 0; }
 case $dump in
@@ -4775,7 +4776,7 @@ case $dump in
 esac
 STUB
   chmod +x "$t/stub/obscura"; o="$t/stub/obscura"
-  a=$(OVH_OBSCURA="$o" vh web fetch "$p" https://faq.example/help --why "the 2 GB limit" --id first 2>&1); rc=$?
+  a=$(OVH_OBSCURA="$o" vh web fetch "$p" https://faq.example/help --why "the 2 GB limit" --id first --wait 2 2>&1); rc=$?
   b=$(OVH_OBSCURA="$o" vh web fetch "$p" https://faq.example/help --dump text 2>&1; OVH_OBSCURA="$o" vh web fetch "$p" https://faq.example/help --dump html --grep 'até 2 GB' 2>&1); rc2=$?
   c=$(OVH_OBSCURA="$o" vh web shot "$p" https://faq.example/settings 2>&1; OVH_OBSCURA="$o" vh web grep "$p" all 'https://faq\.example/x' 2>&1); rc3=$?
   d=$(OVH_OBSCURA="$o" vh web fetch "$p" https://fail.example/ 2>&1; echo "exit $?"
