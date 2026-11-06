@@ -66,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/ZLHad/OpenVideoHarness/main/install
 cd ~/OpenVideoHarness && claude        # or: codex
 ```
 
-The installer puts the repo in `~/OpenVideoHarness` with its packages, fetches 37 read-only reference repos and registers the `open-video-harness` skill for Claude Code and Codex, so asking for a video from any folder finds it. About 650 MB on disk. Then say what you want:
+The installer puts the repo in `~/OpenVideoHarness` with its packages, fetches 37 read-only reference repos and registers the `open-video-harness` skills for Claude Code and Codex, so asking for a video from any folder finds it. About 650 MB on disk. Then say what you want:
 
 > Make a 30-second vertical science short: why does a low-orbit satellite's signal change pitch? English voiceover, English and Chinese subtitles.
 

@@ -12,9 +12,13 @@ usage: bin/vh web fetch <project> <url> [--dump html|markdown|text|links] [--gre
   fetch    the page as Obscura renders it (scripts run): --dump markdown (the default), text, html or links, kept as
            research/web/<id>/page.<md|txt|html|links.txt> with meta.json beside it, and one line in research/web.jsonl.
            A page that renders its text from embedded JSON (a help centre, a store page) comes back nearly empty as
-           text or markdown: fetch says so; take --dump html and --grep the fact out of it
-  shot     a 1280×720 screenshot of the settled page (shot.png) and its HTML (page.html), the same record; a page that
-           will be shown or studied as a reference goes on to bin/vh ref add (studied) or bin/vh assets add (shown)
+           text or markdown: fetch says so; take --dump html and --grep the fact out of it. Obscura fails only when a
+           page cannot be opened: a 404, a login or a bot wall comes back as a page and is kept too, so read the title on
+           the ✓ line, and the warning when it ended on another host, before trusting what was read. --selector CSS waits
+           for that element, up to --wait (default 5 s), and says when it did not come; what is kept is still the whole page
+  shot     a 1280×720 screenshot of the settled page (shot.png) and the HTML of a second load (page.html), the same
+           record; a page that will be shown or studied as a reference goes on to bin/vh ref add (studied) or bin/vh
+           assets add (shown)
   grep     a Python regular expression (case-insensitive) over saved pages; HTML entities and JSON's \\uXXXX and \\/ are
            decoded first, so text kept in a script's JSON is found as it reads. Each hit with N characters around it
   list     the captures: id, when, what was kept, why, the URL
@@ -22,8 +26,8 @@ usage: bin/vh web fetch <project> <url> [--dump html|markdown|text|links] [--gre
            into ~/.local/share/ovh/obscura/<tag>/ and linked from --bin (default ~/.local/bin). --from FILE: that
            tarball instead of a download (checked the same way). A platform whose asset has no sha256 on record yet is
            installed only with --accept-unpinned, on its size alone, and the hash is printed to add to pins.json. An
-           obscura already on --bin that is not this install's link is left alone unless --force (one at the pinned
-           version counts as installed). (The tests:
+           obscura already on --bin (without --bin: on PATH too) at the pinned version counts as installed; one at
+           another version that is not this install's link is left alone unless --force. (The tests:
            --pins FILE, another release table; --offline DIR, the download from DIR/responses.json.)
 
 After fetch, shot and grep a "cite:" line gives the URL, the date and the saved copy, for NOTES.md's sources. The
@@ -31,8 +35,8 @@ copy is a check, not material: nothing here clears a page's text or picture for 
 
 The browser: $OVH_OBSCURA, else obscura on PATH, else ~/.local/bin/obscura, else this install's. It blocks private
 addresses (localhost, 192.168.x) as Obscura does. --json: {"version": 1, …} on stdout (fetch, shot: "capture": the
-record; grep: "hits"; list: "captures"; install: "install"), the lines on stderr. Exit: 0 · 1 the page or the
-install failed · 2 usage.
+record, with final_url and title; grep: "hits"; list: "captures"; install: "install"), the lines on stderr. Exit: 0 ·
+1 the page could not be opened or the install failed · 2 usage.
 """
 import argparse, datetime, hashlib, html, json, os, platform, re, shutil, subprocess, sys, tarfile, tempfile
 from pathlib import Path
@@ -71,7 +75,8 @@ def project(arg):
 
 
 def share():
-    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "ovh" / "obscura"
+    x = os.environ.get("XDG_DATA_HOME")   # a relative value is to be ignored (the XDG base directory spec)
+    return (Path(x) if x and os.path.isabs(x) else Path.home() / ".local" / "share") / "ovh" / "obscura"
 
 
 def browser():
@@ -141,10 +146,31 @@ def new_id(proj, url, when, given):
 def check_url(url):
     if not re.match(r"https?://[^\s/]+", url):
         raise Usage(f"{url}: an http(s) URL is needed")
+    from urllib.parse import urlsplit
+    try:
+        urlsplit(url).hostname
+    except ValueError as e:
+        raise Usage(f"{url}: {e}")
+
+
+def check_times(a):
+    if a.timeout < 1:
+        raise Usage(f"--timeout {a.timeout}: whole seconds, 1 or more")
+    if a.wait is not None and a.wait < 0:
+        raise Usage(f"--wait {a.wait}: whole seconds, 0 or more")
+
+
+def compiled(pattern):
+    try:
+        return re.compile(pattern, re.I)
+    except re.error as e:
+        raise Usage(f"the regular expression {pattern!r}: {e}")
 
 
 def run(exe, url, dump=None, shot=None, a=None):
-    argv = [exe, "fetch", url, "-q", "--timeout", str(a.timeout)]
+    """(stdout, what stderr says about the page). Obscura exits non-zero only when the page cannot be opened, so the line
+    it prints on loading (no -q) is the one word on where it ended and what it was called."""
+    argv = [exe, "fetch", url, "--timeout", str(a.timeout)]
     if dump:
         argv += ["--dump", dump]
     if shot:
@@ -153,14 +179,23 @@ def run(exe, url, dump=None, shot=None, a=None):
         argv += ["--selector", a.selector]
     if a.wait is not None:
         argv += ["--wait", str(a.wait)]
+    budget = a.timeout + (a.wait if a.wait is not None else 5) * 2 + 60   # the load, then a settle and a selector's wait
     try:
-        r = subprocess.run(argv, capture_output=True, timeout=a.timeout + 60)
+        r = subprocess.run(argv, capture_output=True, timeout=budget)
     except subprocess.TimeoutExpired:
-        raise Failed(f"{url}: obscura did not finish in {a.timeout + 60} s")
+        raise Failed(f"{url}: obscura did not finish in {budget} s")
+    except OSError as e:
+        raise Failed(f"{exe} could not run: {e}")
+    err = r.stderr.decode("utf-8", "replace").strip().splitlines()
     if r.returncode != 0:
-        err = r.stderr.decode("utf-8", "replace").strip().splitlines()
-        raise Failed(f"{url}: obscura exit {r.returncode}: {err[-1] if err else 'no message'}")
-    return r.stdout
+        said = next((x for x in err if re.match(r"\s*error\b", x, re.I)), err[-1] if err else "no message")
+        raise Failed(f"{url}: obscura exit {r.returncode}: {said.strip()}")
+    info = {"final_url": None, "title": None, "warnings": [x.strip() for x in err if x.lstrip().startswith("Warning:")]}
+    for line in err:
+        m = re.match(r'\s*Page loaded: (\S+) - "(.*)"\s*$', line)
+        if m:
+            info.update(final_url=m.group(1), title=html.unescape(m.group(2)).strip()[:200] or None)
+    return r.stdout, info
 
 
 def title_of(raw):
@@ -172,22 +207,29 @@ def visible(text):
     return len(re.sub(r"\s+", "", text))
 
 
+def host_of(url):
+    from urllib.parse import urlsplit
+    try:
+        h = (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+    return h[4:] if h.startswith("www.") else h
+
+
 def unescaped(text):
     """Text as it reads: HTML entities, JSON's \\uXXXX (surrogate pairs too) and \\/ decoded."""
     def u(m):
         try:
-            return json.loads(f'"{m.group(0)}"')
+            s = json.loads(f'"{m.group(0)}"')
         except ValueError:
             return m.group(0)
+        return m.group(0) if any(0xD800 <= ord(c) <= 0xDFFF for c in s) else s   # half a pair (an emoji regex in a script)
     text = re.sub(r"(?:\\u[dD][89abAB][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2})|\\u[0-9a-fA-F]{4}", u, text)
     return html.unescape(text.replace("\\/", "/"))
 
 
 def hits(text, pattern, context, cap=20):
-    try:
-        rx = re.compile(pattern, re.I)
-    except re.error as e:
-        raise Usage(f"--grep {pattern!r}: {e}")
+    rx = compiled(pattern)
     hs, view = [], unescaped(text)
     for m in rx.finditer(view):
         s, e = max(0, m.start() - context), min(len(view), m.end() + context)
@@ -198,7 +240,8 @@ def hits(text, pattern, context, cap=20):
 
 
 def cite(rec, file):
-    return f"cite: {rec['url']} (retrieved {rec['retrieved'][:10]}, {file}, sha256 {rec['files'][Path(file).name]['sha256'][:12]})"
+    url = rec.get("final_url") or rec["url"]
+    return f"cite: {url} (retrieved {rec['retrieved'][:10]}, {file}, sha256 {rec['files'][Path(file).name]['sha256'][:12]})"
 
 
 def keep(proj, rec):
@@ -216,21 +259,24 @@ def file_rec(p):
 def capture(a, kind):
     proj = project(a.project)
     check_url(a.url)
+    check_times(a)
+    if getattr(a, "grep", None):
+        compiled(a.grep)   # before anything is fetched or kept
     exe = browser()
     when = now()
     cid = new_id(proj, a.url, when, a.id)
     d = proj / FOLDER / cid
     d.mkdir(parents=True)
-    files, warn = {}, []
+    files, warn, first = {}, [], None
     try:
         if kind == "shot":
-            run(exe, a.url, shot=d / "shot.png", a=a)
+            _, first = run(exe, a.url, shot=d / "shot.png", a=a)
             if not (d / "shot.png").is_file():
                 raise Failed(f"{a.url}: obscura wrote no screenshot (a build without rendering? bin/vh web install)")
             dump = "html"
         else:
             dump = a.dump
-        raw = run(exe, a.url, dump=dump, a=a)
+        raw, info = run(exe, a.url, dump=dump, a=a)
     except Failed:
         shutil.rmtree(d, ignore_errors=True)
         raise
@@ -240,15 +286,20 @@ def capture(a, kind):
         if p.is_file():
             files[p.name] = file_rec(p)
     text = raw.decode("utf-8", "replace")
+    warn += info["warnings"] + [w for w in (first or {}).get("warnings", []) if w not in info["warnings"]]
+    final, title = info["final_url"], info["title"] or (title_of(raw) if dump == "html" else None)
+    if final and host_of(final) != host_of(a.url):
+        warn.append(f"it ended on {final}, another host: look at what came back before citing it (a login or a bot page?)")
     if dump in ("text", "markdown") and visible(text) < THIN:
         warn.append(f"only {visible(text)} visible characters: the page likely renders its text from embedded JSON; "
                     f"take --dump html and --grep the fact out of it")
     rec = {"version": 1, "id": cid, "kind": kind, "url": a.url, "retrieved": when.isoformat().replace("+00:00", "Z"),
-           "dump": dump, "files": files, "title": title_of(raw) if dump == "html" else None, "chars": visible(text),
+           "final_url": final, "dump": dump, "files": files, "title": title, "chars": visible(text),
            "why": a.why, "obscura": version_of(exe), "warnings": warn}
     keep(proj, rec)
     rel = f"{FOLDER.as_posix()}/{cid}/{page.name}"
-    say(f"✓ {cid}: {rec['chars']} characters of {dump}" + (" and shot.png" if kind == "shot" else "") + f" → {rel}")
+    say(f"✓ {cid}: {rec['chars']} characters of {dump}" + (" and shot.png" if kind == "shot" else "") + f" → {rel}"
+        + (f" · {title!r}" if title else ""))
     for w in warn:
         say(f"! {w}")
     hs = hits(text, a.grep, a.context) if getattr(a, "grep", None) else None
@@ -320,50 +371,71 @@ def cmd_install(a):
     if not asset["sha256"] and not a.accept_unpinned:
         raise Failed(f"{asset['name']} has no sha256 on record in tools/web/pins.json, only its size ({asset['size']} bytes): "
                      f"--accept-unpinned installs it on the size alone and prints the hash to add there")
-    links, theirs = [bindir / n for n in pins["files"]], []
-    for ln in links:
-        if (ln.exists() or ln.is_symlink()) and os.path.realpath(ln) != str((dest / ln.name).resolve()):
-            theirs.append(ln)
-    if theirs and not a.force:
-        v = version_of(str(bindir / "obscura"))
+    if a.from_file and not Path(a.from_file).expanduser().is_file():
+        raise Usage(f"--from {a.from_file}: no such file")
+    mine = str(share().resolve()) + os.sep   # a link into this install's folder, of any release, is its own to replace
+    links = [bindir / n for n in pins["files"]]
+    theirs = [ln for ln in links if (ln.exists() or ln.is_symlink()) and not os.path.realpath(ln).startswith(mine)]
+    if not a.force:
+        where = bindir / "obscura"
+        if not os.access(where, os.X_OK) and not a.bin:   # no --bin: the one on PATH counts too
+            where = shutil.which("obscura") or where
+        v = version_of(str(where)) if os.access(where, os.X_OK) else None
         if v == pins["tag"].lstrip("v"):
-            say(f"✓ obscura {v} is on {bindir} already ({os.path.realpath(bindir / 'obscura')}): left as it is (--force: this install instead)")
+            say(f"✓ obscura {v} is there already ({os.path.realpath(where)}): left as it is (--force: this install instead)")
             return {"version": 1, "install": {**plan, "obscura": v, "already": True}}
-        raise Failed(f"{theirs[0]} is there already ({os.path.realpath(theirs[0])}, obscura {v or '?'}): left alone; "
-                     f"--force replaces it, --bin DIR links elsewhere")
+        if theirs:
+            raise Failed(f"{theirs[0]} is there already ({os.path.realpath(theirs[0])}, obscura {v or '?'}): left alone; "
+                         f"--force replaces it, --bin DIR links elsewhere")
     say(f"→ Obscura {pins['tag']} for {key}: {asset['name']}, {asset['size'] / 1e6:.1f} MB" + (f", from {a.from_file}" if a.from_file else f", from {url}"))
     if a.dry_run:
         say(f"  would unpack into {dest} and link {', '.join(pins['files'])} from {bindir}")
         return {"version": 1, "install": {**plan, "dry_run": True}}
-    with tempfile.TemporaryDirectory(prefix="ovh-obscura-") as tmp:
-        tgz = Path(tmp) / asset["name"]
-        if a.from_file:
-            shutil.copyfile(Path(a.from_file).expanduser(), tgz)
-        else:
-            try:
-                fetch.download(url, tgz, sha256=asset["sha256"], opener=fetch.opener_from(a.offline))
-            except fetch.FetchError as e:
-                raise Failed(str(e))
-        got = file_rec(tgz)
-        if got["bytes"] != asset["size"]:
-            raise Failed(f"{asset['name']}: {got['bytes']} bytes, not the {asset['size']} the release lists; nothing installed")
-        if asset["sha256"] and got["sha256"] != asset["sha256"]:
-            raise Failed(f"{asset['name']}: sha256 {got['sha256'][:12]}… is not the {asset['sha256'][:12]}… on record; nothing installed")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    kept = dest.parent / ".download" / asset["name"]   # outside a temporary folder, so a cut download picks up where it stopped
+    tgz = Path(a.from_file).expanduser() if a.from_file else kept
+    if not a.from_file:
+        try:
+            fetch.download(url, kept, sha256=asset["sha256"], opener=fetch.opener_from(a.offline))
+        except fetch.FetchError as e:
+            raise Failed(str(e))
+    got = file_rec(tgz)
+    def refuse(why):
+        if not a.from_file:
+            kept.unlink(missing_ok=True)   # or the next try finds the same bad file
+        raise Failed(f"{asset['name']}: {why}; nothing installed")
+    if got["bytes"] != asset["size"]:
+        refuse(f"{got['bytes']} bytes, not the {asset['size']} the release lists")
+    if asset["sha256"] and got["sha256"] != asset["sha256"]:
+        refuse(f"sha256 {got['sha256'][:12]}… is not the {asset['sha256'][:12]}… on record")
+    stage = Path(tempfile.mkdtemp(prefix=".stage-", dir=dest.parent))   # beside the destination, so the last step is a rename
+    old = None
+    try:
         with tarfile.open(tgz) as t:
             members = {m.name.lstrip("./"): m for m in t.getmembers() if m.isfile()}
             missing = [n for n in pins["files"] if n not in members]
             if missing:
-                raise Failed(f"{asset['name']} has no {', '.join(missing)}; nothing installed")
-            stage = Path(tmp) / "x"
-            stage.mkdir()
+                refuse(f"it has no {', '.join(missing)}")
             for n in pins["files"]:
                 with t.extractfile(members[n]) as src, open(stage / n, "wb") as dst:
                     shutil.copyfileobj(src, dst)
                 os.chmod(stage / n, 0o755)
-        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
-            shutil.rmtree(dest)
-        shutil.move(str(stage), dest)
+            old = Path(tempfile.mkdtemp(prefix=".old-", dir=dest.parent))
+            dest.rename(old / "was")
+        stage.rename(dest)
+    except (tarfile.TarError, OSError) as e:
+        shutil.rmtree(stage, ignore_errors=True)
+        if old and (old / "was").exists() and not dest.exists():
+            (old / "was").rename(dest)
+        refuse(f"could not be unpacked ({e})")
+    except Failed:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+    if old:
+        shutil.rmtree(old, ignore_errors=True)
+    if not a.from_file:
+        kept.unlink(missing_ok=True)
     bindir.mkdir(parents=True, exist_ok=True)
     for name, ln in zip(pins["files"], links):
         if ln.exists() or ln.is_symlink():

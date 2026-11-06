@@ -498,15 +498,16 @@ def show(o, now):
         print("cast: " + (ca["error"] if ca.get("error") else f"{ca['entries']} entr{'y' if ca['entries'] == 1 else 'ies'} ({kinds}), {ca.get('final', 0)} settled"
               + (f", {ca['failures']} failure{'' if ca['failures'] == 1 else 's'} in its check" if ca.get("failures") else "")) + " (bin/vh cast)")
     rs = o.get("research") or {}
-    sc, hot, refs = rs.get("scout") or {}, rs.get("hot") or {}, rs.get("refs") or {}
+    sc, hot, refs, web = rs.get("scout") or {}, rs.get("hot") or {}, rs.get("refs") or {}, rs.get("web") or {}
     bits = [x for x in (
         f"{sc['records']} scout record{'s' if sc['records'] != 1 else ''} ({sc['latest']} looked at"
         + (f", {sc['films']} your own" if sc.get("films") else "") + ")" if sc.get("records") else "",
         f"hot lists on {hot['days']} day{'s' if hot['days'] != 1 else ''} (the last {hot['last']})" if hot.get("days") else "",
         f"{refs['records']} reference{'s' if refs['records'] != 1 else ''}" if refs.get("records") else "",
-        refs.get("error") or "", rs.get("error") or "") if x]
+        f"{web['records']} web page{'s' if web['records'] != 1 else ''} kept" if web.get("records") else "",
+        refs.get("error") or "", web.get("error") or "", rs.get("error") or "") if x]
     if bits:
-        print("research: " + " · ".join(bits) + " (bin/vh scout, bin/vh ref)")
+        print("research: " + " · ".join(bits) + " (bin/vh scout, bin/vh ref, bin/vh web)")
     vs = o.get("versions") or {}
     if vs.get("list"):
         kept = sum(1 for x in vs["list"] if x["state"] == "kept")

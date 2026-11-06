@@ -4758,20 +4758,24 @@ web_checks() {   # bin/vh web (tools/web/web.py) with a stand-in obscura (OVH_OB
   # and cite line, a thin text dump said to be thin, a fact found in a script's JSON (\uXXXX and \/ decoded), a shot, a
   # failed page that leaves nothing, usage errors; install from a made-up release (--from, --offline), its size and
   # sha256 checked, an unpinned asset only with --accept-unpinned, an obscura that is not its own left alone
-  local t p a b c d e rc rc2 rc3 rc4 o
-  t=$(mktemp -d "${TMPDIR:-/tmp}/vh-ci.XXXXXX"); p="$t/proj"; mkdir -p "$p" "$t/stub" "$t/rel"; echo "# BRIEF" > "$p/BRIEF.md"
+  local t p q a b c d e rc rc2 rc3 rc4 o
+  t=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/vh-ci.XXXXXX")" && pwd); p="$t/proj"; mkdir -p "$p" "$t/stub" "$t/rel"; echo "# BRIEF" > "$p/BRIEF.md"
   cat > "$t/stub/obscura" <<'STUB'
 #!/bin/sh
 # a stand-in for obscura fetch <url> -q --timeout N [--dump D] [--screenshot F] [--wait S]; like the real one, S is whole seconds
 [ "$1" = --version ] && { echo "obscura 0.2.5"; exit 0; }
-url=$2; dump=; shot=
-while [ $# -gt 0 ]; do case $1 in --dump) dump=$2; shift ;; --screenshot) shot=$2; shift ;;
+url=$2; dump=; shot=; sel=
+while [ $# -gt 0 ]; do case $1 in --dump) dump=$2; shift ;; --screenshot) shot=$2; shift ;; --selector) sel=$2; shift ;;
+  -q) echo "this stand-in hides nothing: -q would lose the line below" >&2; exit 2 ;;
+  --timeout) case $2 in 0) echo "error: invalid value '0' for '--timeout <TIMEOUT>'" >&2; echo "For more information, try '--help'." >&2; exit 2 ;; esac; shift ;;
   --wait) case $2 in *[!0-9]*) echo "error: invalid value '$2' for '--wait <WAIT>'" >&2; exit 2 ;; esac; shift ;; esac; shift; done
 case $url in *fail*) echo "Error: Failed to navigate to $url: dns error" >&2; exit 1 ;; esac
+case $url in *moved*) echo 'Page loaded: https://login.example/wall - "Just a moment"' >&2 ;; *) echo "Page loaded: $url - \"Ajuda &amp; FAQ\"" >&2 ;; esac
+case $sel in *missing*) echo "Warning: selector '$sel' not found after 5s" >&2 ;; esac
 [ -n "$shot" ] && { printf 'PNG-ish' > "$shot"; exit 0; }
 case $dump in
   text) printf ' \n\n ' ;;
-  html) printf '%s' '<html><head><title>Ajuda &amp; FAQ</title></head><body><script>{"body":"Você pode enviar arquivos de até 2 GB. Veja https:\/\/faq.example\/x"}</script></body></html>' ;;
+  html) printf '%s' '<html><head><title>Ajuda &amp; FAQ</title></head><body><script>{"body":"Você pode enviar arquivos de até 2 GB. Veja https:\/\/faq.example\/x"};var e=/[\ud800-\udbff]/</script></body></html>' ;;
   *) i=0; while [ $i -lt 12 ]; do printf 'A markdown page with enough words in it to read as text. '; i=$((i + 1)); done ;;
 esac
 STUB
@@ -4810,6 +4814,33 @@ sys.exit("\n".join(bad) if bad else 0)
 PY
   then ok "web with a stand-in obscura: a page kept in research/web/<id>/ with meta.json, the index line and a cite: line (URL, date, file, sha256); a thin text dump points to --dump html and --grep, which finds the fact in a script's JSON; a shot with its HTML and ref add's line; grep over every page; a failed page leaves nothing (1); usage errors are 2"
   else bad "web fetch, shot, grep, list (exits $rc:$rc2:$rc3:$rc4): $(printf '%s' "$a$b$c$d" | tail -c 700)"; fi
+  # what success means: another host is a warning, a selector that never came is said, the title and the final URL are on
+  # record and in the cite line; a bad expression or a bad URL fetches and keeps nothing; status counts the captures
+  q="$t/proj2"; mkdir -p "$q"; echo "# BRIEF" > "$q/BRIEF.md"
+  a=$(OVH_OBSCURA="$o" vh web fetch "$q" https://moved.example/a --id moved 2>&1); rc=$?
+  b=$(OVH_OBSCURA="$o" vh web fetch "$q" https://faq.example/b --id sel --selector .missing 2>&1); rc2=$?
+  c=$(for x in "fetch $q https://faq.example/c --grep (" "fetch $q http://[bad/x" "fetch $q https://faq.example/d --timeout 0" "fetch $q https://faq.example/e --wait -1"; do
+        # shellcheck disable=SC2086   # each line is the arguments, split on purpose
+        OVH_OBSCURA="$o" vh web $x 2>&1; echo "exit $?"; done; ls "$q/research/web" | wc -l)
+  d=$(OVH_OBSCURA="$o" vh status "$q" --json 2>/dev/null)
+  e=$(OVH_OBSCURA="$o" vh doctor --json 2>/dev/null)
+  if [ "$rc:$rc2" = 0:0 ] && python3 - "$q" "$a" "$b" "$c" "$d" "$e" "$o" <<'PY'
+import json, sys
+q, a, b, c, d, e, o = sys.argv[1:]; bad = []
+rs = [json.loads(x) for x in open(f"{q}/research/web.jsonl")]
+if [r["id"] for r in rs] != ["moved", "sel"]: bad.append(f"kept: {[r['id'] for r in rs]}")
+if rs[0]["final_url"] != "https://login.example/wall" or rs[0]["title"] != "Just a moment" or "another host" not in " ".join(rs[0]["warnings"]): bad.append(f"moved: {rs[0]}")
+if "'Just a moment'" not in a or "another host" not in a or "cite: https://login.example/wall (" not in a: bad.append(f"moved says: {a[-400:]}")
+if rs[1]["title"] != "Ajuda & FAQ" or "not found after" not in " ".join(rs[1]["warnings"]) or "not found after" not in b: bad.append(f"selector: {rs[1]} {b[-300:]}")
+if "--wait -1: whole seconds" not in c or "--timeout 0: whole seconds" not in c or "the regular expression" not in c or c.count("exit 2") != 4 or c.split()[-1] != "2": bad.append(f"refused before fetching: {c[-500:]}")
+w = json.loads(d)["research"]["web"]
+if w["records"] != 2 or w["file"] != "research/web.jsonl" or not w["last"]: bad.append(f"status: {w}")
+m = next(x for x in json.loads(e)["modules"] if x["name"] == "obscura")
+if m.get("found") != o or m.get("version") != "0.2.5": bad.append(f"doctor: {m}")
+sys.exit("\n".join(bad) if bad else 0)
+PY
+  then ok "web: a page that ended on another host is a warning, with its title and final URL on record and in the cite line; a selector that never came is said; a bad expression, URL or time keeps nothing (2); status counts the captures; doctor finds the browser through OVH_OBSCURA"
+  else bad "web, what success means (exits $rc:$rc2): $(printf '%s' "$a$b$c" | tail -c 600)"; fi
   # install from a made-up release: a tarball of two stand-ins, its pins (every platform's key names it)
   mkdir -p "$t/rel/x"; cp "$o" "$t/rel/x/obscura"; cp "$o" "$t/rel/x/obscura-worker"; tar czf "$t/rel/o.tar.gz" -C "$t/rel/x" obscura obscura-worker
   python3 - "$t/rel" <<'PY'
@@ -4819,6 +4850,7 @@ def pins(size, sha): return {"version": 1, "repo": "example/obscura", "tag": "v0
     "assets": {k: {"name": "o.tar.gz", "size": size, "sha256": sha} for k in ("linux-x86_64", "linux-aarch64", "darwin-arm64", "darwin-x86_64")}}
 for n, s, sha in (("good", len(b), h), ("size", len(b) + 1, h), ("sha", len(b), "0" * 64), ("unpinned", len(b), None)):
     json.dump(pins(s, sha), open(f"{d}/{n}.json", "w"))
+json.dump({**pins(len(b), h), "tag": "v0.2.6"}, open(f"{d}/newer.json", "w"))
 os.makedirs(f"{d}/rec", exist_ok=True); os.link(f"{d}/o.tar.gz", f"{d}/rec/o.tar.gz")
 json.dump({"v": 1, "responses": [{"url": "https://github.com/example/obscura/releases/download/v0.2.5/o.tar.gz", "status": 200, "headers": {}, "body": "o.tar.gz"}]}, open(f"{d}/rec/responses.json", "w"))
 PY
@@ -4828,6 +4860,14 @@ PY
       inst unpinned --from "$t/rel/o.tar.gz" --bin "$t/b3" --accept-unpinned)
   mkdir -p "$t/b4"; ln -s /bin/sh "$t/b4/obscura"
   c=$(inst good --from "$t/rel/o.tar.gz" --bin "$t/b4"; inst good --from "$t/rel/o.tar.gz" --bin "$t/b4" --force; inst good --dry-run --bin "$t/b5")
+  # its own link: the same release is left as it is (nothing fetched, no network here), a newer one replaces it with no --force
+  d=$(inst good --bin "$t/bin"; inst newer --from "$t/rel/o.tar.gz" --bin "$t/bin"; inst good --from "$t/rel/none.tar.gz" --bin "$t/b6")
+  case "$d" in
+    *"is there already"*"exit 0"*"linked from $t/bin"*"exit 0"*"no such file"*"exit 2")
+      if [ "$(readlink "$t/bin/obscura")" = "$t/share/ovh/obscura/v0.2.6/obscura" ] && [ ! -e "$t/share/ovh/obscura/.download/o.tar.gz" ]
+      then ok "web install: its own link at the same release is left alone, nothing fetched; a newer release replaces it with no --force; a --from that is not there is usage (2)"
+      else bad "web install, its own link: $(readlink "$t/bin/obscura")"; fi ;;
+    *) bad "web install, its own link: $(printf '%s' "$d" | tail -c 500)" ;; esac
   case "$a|$b|$c" in
     *"✓ obscura 0.2.5 in $t/share/ovh/obscura/v0.2.5, linked from $t/bin"*"exit 0"*"obscura 0.2.5"*'"sha256_got"'*"exit 0|"*"bytes, not the"*"exit 1"*"is not the 0000"*"exit 1"*"--accept-unpinned installs it"*"exit 1"*"its sha256 is"*"exit 0|"*"b4/obscura is there already ("*"exit 1"*"linked from $t/b4"*"exit 0"*"would unpack into"*"exit 0")
       if [ "$(readlink "$t/b4/obscura")" = "$t/share/ovh/obscura/v0.2.5/obscura" ] && [ -L "$t/b3/obscura" ] && [ -x "$t/bin2/obscura-worker" ] && [ ! -e "$t/b5" ]

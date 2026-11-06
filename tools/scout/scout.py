@@ -790,7 +790,16 @@ def overview(project):
         pass
     except (OSError, ValueError, AttributeError) as e:
         err = f"research/refs.json could not be read ({e})"
-    return {"scout": {"file": f"research/{LOG}" if log else None, "records": len(log), "latest": len(latest(log)),
+    web, web_err = [], None
+    try:
+        web = [json.loads(x) for x in (d / "web.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError) as e:
+        web_err = f"research/web.jsonl could not be read ({e})"
+    return {"web": {"file": "research/web.jsonl" if web or web_err else None, "records": len(web), "error": web_err,
+                    "last": max((r.get("retrieved") or "" for r in web if isinstance(r, dict)), default="") or None},
+            "scout": {"file": f"research/{LOG}" if log else None, "records": len(log), "latest": len(latest(log)),
                       "films": len({r["key"] for r in log if r.get("via") == "post" and r.get("key")}),
                       "last": max((r.get("fetched_at") or "" for r in log), default="") or None},
             "hot": {"days": len(days), "first": days[0] if days else None, "last": days[-1] if days else None},

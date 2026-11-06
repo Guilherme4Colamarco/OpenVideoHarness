@@ -484,7 +484,7 @@
       "adapter": ["tools/web/web.py (browser, run)", "tools/web/pins.json", "skills/open-video-harness-web/SKILL.md"],
       "commands": ["web"],
       "required": false,
-      "check": {"program": "obscura", "version": ["obscura", "--version"], "pattern": "obscura (\\d+(?:\\.\\d+)*)", "also": ["obscura-worker"]},
+      "check": {"program": "obscura", "env": "OVH_OBSCURA", "paths": ["~/.local/bin/obscura"], "version": ["obscura", "--version"], "pattern": "obscura (\\d+(?:\\.\\d+)*)", "also": ["obscura-worker"]},
       "install": {"macos": "bin/vh web install (the pinned release from github.com/h4ckf0r0day/obscura/releases, size and sha256 checked)", "linux": "bin/vh web install (the same)"}
     },
     {

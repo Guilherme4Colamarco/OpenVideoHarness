@@ -118,21 +118,21 @@
     },
     {
       "name": "install-skill",
-      "summary": "Register the open-video-harness skill for Claude Code, Codex or both, pointing at this clone.",
+      "summary": "Register the skills in skills/ for Claude Code, Codex or both, pointing at this clone.",
       "when": "once, so that a video request in any folder finds this repo",
       "stages": ["env"],
       "reads": [
-        "skills/open-video-harness/SKILL.md"
+        "skills/*/SKILL.md"
       ],
       "writes": [
-        "~/.claude/skills/open-video-harness/SKILL.md",
-        "~/.agents/skills/open-video-harness/SKILL.md"
+        "~/.claude/skills/<skill>/SKILL.md",
+        "~/.agents/skills/<skill>/SKILL.md"
       ],
       "usage": [
         {
           "synopsis": "install-skill [claude|codex|all]",
           "text": [
-            "register the open-video-harness skill (~/.claude/skills, ~/.agents/skills)"
+            "register every skill in skills/ (~/.claude/skills, ~/.agents/skills)"
           ]
         }
       ]
@@ -883,13 +883,14 @@
           "synopsis": "web fetch <project> <url> [--dump markdown|text|html|links] [--grep RE] [--selector CSS] [--wait S] [--why TEXT] [--json]",
           "text": [
             "the page as rendered, kept with meta.json and a cite: line; a nearly empty text or markdown says to take",
-            "--dump html and --grep (a page that renders its text from embedded JSON)"
+            "--dump html and --grep (a page that renders its text from embedded JSON). A 404 or a bot wall is kept too: read",
+            "the title on the line it prints. --selector waits for an element; it does not narrow what is kept"
           ]
         },
         {
           "synopsis": "web shot <project> <url> [--wait S] [--why TEXT] [--json]",
           "text": [
-            "a 1280×720 screenshot and the page's HTML; a reference goes on to bin/vh ref add"
+            "a 1280×720 screenshot and the HTML of a second load; a reference goes on to bin/vh ref add"
           ]
         },
         {

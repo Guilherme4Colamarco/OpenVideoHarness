@@ -149,17 +149,21 @@ def check_module(m, found_by, today):
         r.update(state="per_project", note=f"each project has its own: {ck['per_project']}")
         return r
     if ck.get("program"):
-        path = shutil.which(ck["program"])
+        # as the tool that runs it looks: its environment variable, PATH, then the places it installs to (check's env, paths)
+        at = os.environ.get(ck["env"]) if ck.get("env") else None
+        path = at or shutil.which(ck["program"])
+        if not path:
+            at = path = next((p for p in map(os.path.expanduser, ck.get("paths", [])) if os.access(p, os.X_OK)), None)
         if not path:
             r.update(state="missing", note=f"{ck['program']} not found")
             return r
         r["found"] = path
         if ck.get("version"):
-            _, out = run(ck["version"])
+            _, out = run([path] + ck["version"][1:] if at else ck["version"])
             mm = re.search(ck.get("pattern", r"(\d+(?:\.\d+)+)"), out or "")
             r["version"] = mm.group(1) if mm else None
         for other in ck.get("also", []):
-            if not shutil.which(other):
+            if not shutil.which(other) and not (at and os.path.exists(os.path.join(os.path.dirname(path), other))):
                 r["state"] = "incomplete"; notes.append(f"no {other} beside it")
         for f in ck.get("features", []):
             _, out = run(f["argv"])
@@ -465,7 +469,7 @@ def problems(t, commands=None):
         if m.get("status") == "planned" and cmds:
             bad.append(f"{at}: planned, yet commands use it")
         ck = m.get("check")
-        if not isinstance(ck, dict) or set(ck) - {"program", "version", "pattern", "also", "features", "finder", "npm", "uv", "hf_model", "files", "per_project"}:
+        if not isinstance(ck, dict) or set(ck) - {"program", "env", "paths", "version", "pattern", "also", "features", "finder", "npm", "uv", "hf_model", "files", "per_project"}:
             bad.append(f"{at}: check has a key doctor does not know")
         elif ck.get("finder") not in (None, "chrome", "hf-chrome"):
             bad.append(f"{at}: finder {ck['finder']!r} is not one bin/vh passes (chrome, hf-chrome)")
